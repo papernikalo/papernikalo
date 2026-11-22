@@ -26,6 +26,12 @@ export const tools = [
     name: "Page to image",
     detail: "Turn a scanned page into a JPG when a portal will not accept a PDF.",
   },
+  {
+    name: "Typing test",
+    detail:
+      "Practise the Delhi High Court SPA / PA typing test with timed passages and mistake counting.",
+    href: "/tools/typing",
+  },
 ];
 
 export const practiceSets = [
@@ -242,7 +248,7 @@ export const jobs = [
     title: "Combined Graduate Level Examination",
     place: "All India",
     qualification: "Graduate",
-    vacancies: "Sample",
+    vacancies: "See the notice",
     lastDate: "30 November 2026",
   },
   {
@@ -250,7 +256,7 @@ export const jobs = [
     title: "Civil Services Examination",
     place: "All India",
     qualification: "Graduate",
-    vacancies: "Sample",
+    vacancies: "See the notice",
     lastDate: "18 February 2027",
   },
   {
@@ -258,7 +264,7 @@ export const jobs = [
     title: "NTPC Graduate Posts",
     place: "Zonal railways",
     qualification: "Graduate",
-    vacancies: "Sample",
+    vacancies: "See the notice",
     lastDate: "12 December 2026",
   },
   {
@@ -266,7 +272,7 @@ export const jobs = [
     title: "Probationary Officer / Management Trainee",
     place: "Participating banks",
     qualification: "Graduate",
-    vacancies: "Sample",
+    vacancies: "See the notice",
     lastDate: "21 November 2026",
   },
   {
@@ -274,7 +280,7 @@ export const jobs = [
     title: "Sub Inspector",
     place: "State cadre",
     qualification: "Graduate",
-    vacancies: "Sample",
+    vacancies: "See the notice",
     lastDate: "5 January 2027",
   },
 ];
@@ -284,30 +290,30 @@ export const notifications = [
     kind: "Admit card",
     title: "SSC CGL Tier I city intimation",
     date: "12 November 2026",
-    detail: "Sample alert. The download link is not connected.",
+    detail: "The city slip is not available to download from this page.",
   },
   {
     kind: "Result",
     title: "UPSC CSE Prelims result",
     date: "8 November 2026",
-    detail: "Sample alert. No official result is published from this page.",
+    detail: "The result is published by UPSC, not from here.",
   },
   {
     kind: "Recruitment",
     title: "RRB NTPC application window",
     date: "2 November 2026",
-    detail: "Sample alert. Apply only on the official board website.",
+    detail: "Apply on the railway board site. This line is only a reminder.",
   },
   {
     kind: "Exam update",
     title: "IBPS PO mains date notice",
     date: "28 October 2026",
-    detail: "Sample alert. Dates here are placeholders.",
+    detail: "The date here is an example. Confirm it on the IBPS site.",
   },
   {
     kind: "Last date",
     title: "State PSC form correction window",
     date: "20 October 2026",
-    detail: "Sample alert. Correction links are not live.",
+    detail: "Shown so you can see a last-date notice. The correction link is not live.",
   },
 ];

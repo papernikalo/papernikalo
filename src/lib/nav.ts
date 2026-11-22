@@ -2,22 +2,22 @@ export const tabs = [
   {
     href: "/tools",
     label: "Tools",
-    summary: "Prepare photos, signatures, and documents for application forms.",
+    summary: "Get a form photo, signature, and PDF ready before you upload them.",
   },
   {
     href: "/practice",
     label: "Practice",
-    summary: "Work through sample questions for central and state exams.",
+    summary: "Try a question from the kind of paper these exams set.",
   },
   {
     href: "/jobs",
     label: "Jobs",
-    summary: "Browse sample openings from boards across India.",
+    summary: "A short list of openings, so you can see how a notice is laid out.",
   },
   {
     href: "/notifications",
     label: "Notifications",
-    summary: "See sample admit cards, results, and last-date alerts.",
+    summary: "Admit cards, results, and last dates. These are examples, not live alerts.",
   },
 ] as const;
 

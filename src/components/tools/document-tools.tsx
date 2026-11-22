@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import {
   cropSignature,
@@ -10,7 +11,7 @@ import {
 } from "@/lib/image-tools";
 import { compressPdf, mergeDocuments, pdfPagesToImages } from "@/lib/pdf-tools";
 
-type Tool = { name: string; detail: string };
+type Tool = { name: string; detail: string; href?: string };
 
 const photoPresets = [
   { id: "ssc", label: "SSC style", width: 200, height: 230, maxKb: 50 },
@@ -43,6 +44,7 @@ const toolIcons = {
   "PDF compress": CompressIcon,
   "Merge documents": MergeIcon,
   "Page to image": PageIcon,
+  "Typing test": TypingIcon,
 } as const;
 
 export function DocumentTools({ tools }: { tools: Tool[] }) {
@@ -52,29 +54,30 @@ export function DocumentTools({ tools }: { tools: Tool[] }) {
 
   return (
     <div className="grid gap-6">
-      <p className="text-sm leading-6 text-[#57534e]">
-        Files stay in this browser. Nothing is uploaded.
+      <p className="rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-3 text-sm leading-6 text-[#52606d]">
+        Photos, PDFs, and typing results stay on this device. Nothing is uploaded.
       </p>
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tools.map((tool) => {
           const ToolIcon = toolIcons[tool.name as keyof typeof toolIcons];
           return (
             <li key={tool.name}>
-              <button
-                type="button"
-                onClick={() => setOpenName(tool.name)}
-                className="flex h-full w-full flex-col items-start gap-3 rounded-lg border border-[#e4d8c4] bg-[#fbf7f0] px-4 py-4 text-left transition-colors hover:bg-[#fffdf8]"
-              >
-                <span className="flex h-11 w-11 items-center justify-center rounded-md bg-[#f4efe6] text-[#9a3412]">
-                  {ToolIcon ? <ToolIcon /> : null}
-                </span>
-                <span>
-                  <span className="block font-medium">{tool.name}</span>
-                  <span className="mt-1 block text-sm leading-6 text-[#57534e]">
-                    {tool.detail}
-                  </span>
-                </span>
-              </button>
+              {tool.href ? (
+                <Link
+                  href={tool.href}
+                  className="flex h-full w-full flex-col items-start gap-4 rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-4 text-left transition-colors hover:border-[#8aa4bc]"
+                >
+                  <ToolCardBody name={tool.name} detail={tool.detail} icon={ToolIcon} />
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setOpenName(tool.name)}
+                  className="flex h-full w-full flex-col items-start gap-4 rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-4 text-left transition-colors hover:border-[#8aa4bc]"
+                >
+                  <ToolCardBody name={tool.name} detail={tool.detail} icon={ToolIcon} />
+                </button>
+              )}
             </li>
           );
         })}
@@ -95,6 +98,28 @@ export function DocumentTools({ tools }: { tools: Tool[] }) {
         </ToolDialog>
       ) : null}
     </div>
+  );
+}
+
+function ToolCardBody({
+  name,
+  detail,
+  icon: Icon,
+}: {
+  name: string;
+  detail: string;
+  icon?: () => React.ReactNode;
+}) {
+  return (
+    <>
+      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3f5f7] text-[#1d4e89]">
+        {Icon ? <Icon /> : null}
+      </span>
+      <span>
+        <span className="block font-medium">{name}</span>
+        <span className="mt-1 block text-sm leading-6 text-[#52606d]">{detail}</span>
+      </span>
+    </>
   );
 }
 
@@ -126,7 +151,7 @@ function ToolDialog({
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
-      className="m-auto w-[min(40rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-hidden rounded-xl border border-[#e4d8c4] bg-[#fbf7f0] p-0 text-[#1c1917] backdrop:bg-[#1c1917]/45"
+      className="m-auto w-[min(40rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-hidden rounded-2xl border border-[#d5dee6] bg-[#ffffff] p-0 text-[#1c2834] shadow-xl backdrop:bg-[#1c2834]/50"
       onClose={onClose}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
@@ -135,20 +160,20 @@ function ToolDialog({
       }}
     >
       <div className="flex max-h-[calc(100dvh-2rem)] flex-col">
-        <div className="flex items-start gap-3 border-b border-[#e4d8c4] px-5 py-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-[#f4efe6] text-[#9a3412]">
+        <div className="flex items-start gap-3 border-b border-[#e6edf2] px-5 py-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f3f5f7] text-[#1d4e89]">
             {icon}
           </span>
           <div className="min-w-0 flex-1">
             <h2 id={titleId} className="text-lg font-medium">
               {title}
             </h2>
-            <p className="mt-1 text-sm leading-6 text-[#57534e]">{detail}</p>
+            <p className="mt-1 text-sm leading-6 text-[#52606d]">{detail}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 text-sm font-medium text-[#7c2d12] underline-offset-4 hover:underline"
+            className="shrink-0 rounded-full border border-[#c5d0d8] px-3 py-1.5 text-sm font-medium"
           >
             Close
           </button>
@@ -172,14 +197,14 @@ function Field({
 }) {
   return (
     <label className="grid gap-1 text-sm">
-      <span className="text-[#57534e]">{label}</span>
+      <span className="text-[#52606d]">{label}</span>
       {children}
     </label>
   );
 }
 
 const inputClass =
-  "w-full rounded-md border border-[#e4d8c4] bg-white px-3 py-2 text-sm text-[#1c1917]";
+  "w-full rounded-xl border border-[#d5dee6] bg-white px-3 py-2.5 text-sm text-[#1c2834]";
 
 function RunButton({
   children,
@@ -194,7 +219,7 @@ function RunButton({
     <button
       type="submit"
       disabled={busy || disabled}
-      className="inline-flex h-10 items-center justify-center rounded-full bg-[#1c1917] px-4 text-sm font-medium text-[#f4efe6] disabled:opacity-50"
+      className="inline-flex h-10 items-center justify-center rounded-full bg-[#1c2834] px-4 text-sm font-medium text-[#f4f7f9] disabled:opacity-50"
     >
       {busy ? "Working…" : children}
     </button>
@@ -202,11 +227,11 @@ function RunButton({
 }
 
 function ResultNote({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm leading-6 text-[#57534e]">{children}</p>;
+  return <p className="text-sm leading-6 text-[#52606d]">{children}</p>;
 }
 
 function ErrorNote({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm leading-6 text-[#9a3412]">{children}</p>;
+  return <p className="text-sm leading-6 text-[#1d4e89]">{children}</p>;
 }
 
 function DownloadLink({ href, filename, children }: { href: string; filename: string; children: React.ReactNode }) {
@@ -214,7 +239,7 @@ function DownloadLink({ href, filename, children }: { href: string; filename: st
     <a
       href={href}
       download={filename}
-      className="text-sm font-medium text-[#7c2d12] underline underline-offset-4"
+      className="text-sm font-medium text-[#1d4e89] underline underline-offset-4"
     >
       {children}
     </a>
@@ -365,7 +390,7 @@ function PhotoResizer() {
       {error ? <ErrorNote>{error}</ErrorNote> : null}
       {preview ? (
         <div className="grid gap-2">
-          <img src={preview} alt="Resized form photo" className="max-h-64 w-auto rounded-md border border-[#e4d8c4] bg-white" />
+          <img src={preview} alt="Resized form photo" className="max-h-64 w-auto rounded-md border border-[#d5dee6] bg-white" />
           <ResultNote>{savedSize}</ResultNote>
           <DownloadLink href={preview} filename="form-photo.jpg">
             Download JPG
@@ -473,7 +498,7 @@ function SignatureCrop() {
       {error ? <ErrorNote>{error}</ErrorNote> : null}
       {preview ? (
         <div className="grid gap-2">
-          <img src={preview} alt="Cropped signature" className="max-w-full rounded-md border border-[#e4d8c4] bg-white" />
+          <img src={preview} alt="Cropped signature" className="max-w-full rounded-md border border-[#d5dee6] bg-white" />
           <DownloadLink href={preview} filename="signature.png">
             Download PNG
           </DownloadLink>
@@ -495,7 +520,7 @@ function PlainBackground() {
 
   return (
     <ToolFields>
-      <p className="text-sm leading-6 text-[#57534e]">
+      <p className="text-sm leading-6 text-[#52606d]">
         Works when the backdrop is a fairly even colour and touches the edges of the photo.
       </p>
       <Field label="Photo">
@@ -559,7 +584,7 @@ function PlainBackground() {
       {error ? <ErrorNote>{error}</ErrorNote> : null}
       {preview ? (
         <div className="grid gap-2">
-          <img src={preview} alt="Photo with a plain background" className="max-h-72 w-auto rounded-md border border-[#e4d8c4] bg-white" />
+          <img src={preview} alt="Photo with a plain background" className="max-h-72 w-auto rounded-md border border-[#d5dee6] bg-white" />
           <DownloadLink href={preview} filename="plain-background.jpg">
             Download JPG
           </DownloadLink>
@@ -672,7 +697,7 @@ function MergeDocuments() {
               <span className="flex shrink-0 gap-2">
                 <button
                   type="button"
-                  className="text-[#7c2d12] underline-offset-4 hover:underline disabled:opacity-40"
+                  className="text-[#1d4e89] underline-offset-4 hover:underline disabled:opacity-40"
                   disabled={index === 0}
                   onClick={() => moveFile(index, -1)}
                 >
@@ -680,7 +705,7 @@ function MergeDocuments() {
                 </button>
                 <button
                   type="button"
-                  className="text-[#7c2d12] underline-offset-4 hover:underline disabled:opacity-40"
+                  className="text-[#1d4e89] underline-offset-4 hover:underline disabled:opacity-40"
                   disabled={index === files.length - 1}
                   onClick={() => moveFile(index, 1)}
                 >
@@ -845,6 +870,15 @@ function MergeIcon() {
   );
 }
 
+function TypingIcon() {
+  return (
+    <IconFrame>
+      <rect x="4" y="8" width="24" height="16" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8 13h2M13 13h2M18 13h2M22 13h2M8 17h2M12 17h8M22 17h2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </IconFrame>
+  );
+}
+
 function PageIcon() {
   return (
     <IconFrame>
@@ -866,7 +900,7 @@ function PagePreview({ page, index }: { page: Blob; index: number }) {
       <img
         src={href}
         alt={`Page ${index + 1}`}
-        className="max-h-72 w-full rounded-md border border-[#e4d8c4] bg-white object-contain"
+        className="max-h-72 w-full rounded-md border border-[#d5dee6] bg-white object-contain"
       />
       <DownloadLink href={href} filename={`page-${index + 1}.jpg`}>
         Download page {index + 1}

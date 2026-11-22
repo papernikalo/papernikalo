@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function ToolsPage() {
   return (
     <PageFrame title={tab.label} summary={tab.summary}>
-      <DocumentTools tools={tools.map((tool) => ({ name: tool.name, detail: tool.detail }))} />
+      <DocumentTools tools={tools} />
     </PageFrame>
   );
 }

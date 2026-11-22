@@ -13,20 +13,20 @@ export const metadata: Metadata = {
 export default function NotificationsPage() {
   return (
     <PageFrame title={tab.label} summary={tab.summary}>
-      <ul className="divide-y divide-[#e4d8c4] border-y border-[#e4d8c4]">
+      <ul className="grid gap-3">
         {notifications.map((item) => (
           <li
             key={item.title}
-            className="grid gap-2 py-4 sm:grid-cols-[8.5rem_1fr] sm:gap-6"
+            className="rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-4 sm:px-5"
           >
-            <p className="text-sm font-medium text-[#9a3412]">{item.kind}</p>
-            <div>
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 className="font-medium">{item.title}</h2>
-                <time className="font-mono text-sm text-[#6b6258]">{item.date}</time>
-              </div>
-              <p className="mt-1 text-sm leading-6 text-[#57534e]">{item.detail}</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="rounded-full bg-[#f3f5f7] px-2.5 py-1 text-xs font-medium text-[#1d4e89]">
+                {item.kind}
+              </p>
+              <time className="text-sm text-[#5c6b78]">{item.date}</time>
             </div>
+            <h2 className="mt-3 font-semibold tracking-tight">{item.title}</h2>
+            <p className="mt-1 text-sm leading-6 text-[#52606d]">{item.detail}</p>
           </li>
         ))}
       </ul>

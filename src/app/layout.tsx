@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AuthProvider } from "@/components/auth-provider";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { governmentJobNames } from "@/lib/content";
@@ -32,10 +33,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <div className="flex min-h-full flex-1 flex-col bg-[#f4efe6] font-sans text-[#1c1917]">
-          <SiteHeader />
-          {children}
-          <SiteFooter />
+        <div className="flex min-h-full flex-1 flex-col bg-[#f3f5f7] font-sans text-[#1c2834]">
+          <AuthProvider>
+            <SiteHeader />
+            {children}
+            <SiteFooter />
+          </AuthProvider>
         </div>
       </body>
     </html>

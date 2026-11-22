@@ -22,3 +22,11 @@ export function formatDate(iso: string) {
 export function formatCount(value: number) {
   return new Intl.NumberFormat("en-IN").format(value);
 }
+
+/** `amountPaise` is the Razorpay amount: rupees times 100. */
+export function formatInr(amountPaise: number) {
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+  }).format(amountPaise / 100);
+}
