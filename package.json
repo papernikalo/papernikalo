@@ -15,7 +15,8 @@
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.5.438",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "react-select": "^5.10.2"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "4.3.3",

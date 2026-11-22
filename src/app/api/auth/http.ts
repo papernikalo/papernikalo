@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { AuthError } from "@/lib/auth-config";
 import { isSameSite } from "@/lib/same-origin";
 
@@ -22,6 +23,7 @@ export async function readJson(request: Request) {
 }
 
 export function authFailure(error: unknown, fallback: string) {
+  unstable_rethrow(error);
   if (error instanceof AuthError) {
     return authJson({ error: error.message }, error.status);
   }

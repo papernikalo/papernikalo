@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import { AppSelect } from "@/components/app-select";
 import {
   cropSignature,
   drawCover,
@@ -55,7 +56,7 @@ export function DocumentTools({ tools }: { tools: Tool[] }) {
   return (
     <div className="grid gap-6">
       <p className="rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-3 text-sm leading-6 text-[#52606d]">
-        Photos, PDFs, and typing results stay on this device. Nothing is uploaded.
+        Photos and PDFs stay on this device. A signed-in typing test is saved on your account.
       </p>
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tools.map((tool) => {
@@ -299,25 +300,19 @@ function PhotoResizer() {
       </Field>
       <div className="grid gap-3 sm:grid-cols-4">
         <Field label="Size">
-          <select
-            className={inputClass}
+          <AppSelect
             value={presetId}
-            onChange={(event) => {
-              const next = photoPresets.find((item) => item.id === event.target.value);
-              setPresetId(event.target.value);
+            options={photoPresets.map((item) => ({ value: item.id, label: item.label }))}
+            onChange={(value) => {
+              const next = photoPresets.find((item) => item.id === value);
+              setPresetId(value);
               if (next) {
                 setWidth(next.width);
                 setHeight(next.height);
                 setMaxKb(next.maxKb);
               }
             }}
-          >
-            {photoPresets.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
+          />
         </Field>
         <Field label="Width">
           <input
@@ -428,24 +423,18 @@ function SignatureCrop() {
       </Field>
       <div className="grid gap-3 sm:grid-cols-3">
         <Field label="Box">
-          <select
-            className={inputClass}
+          <AppSelect
             value={presetId}
-            onChange={(event) => {
-              const next = signaturePresets.find((item) => item.id === event.target.value);
-              setPresetId(event.target.value);
+            options={signaturePresets.map((item) => ({ value: item.id, label: item.label }))}
+            onChange={(value) => {
+              const next = signaturePresets.find((item) => item.id === value);
+              setPresetId(value);
               if (next) {
                 setWidth(next.width);
                 setHeight(next.height);
               }
             }}
-          >
-            {signaturePresets.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
+          />
         </Field>
         <Field label="Width">
           <input
@@ -537,17 +526,11 @@ function PlainBackground() {
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Replacement">
-          <select
-            className={inputClass}
+          <AppSelect
             value={colorId}
-            onChange={(event) => setColorId(event.target.value)}
-          >
-            {backgroundColors.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
+            options={backgroundColors.map((item) => ({ value: item.id, label: item.label }))}
+            onChange={setColorId}
+          />
         </Field>
         <Field label={`Edge match ${tolerance}`}>
           <input
@@ -618,17 +601,11 @@ function PdfCompress() {
         />
       </Field>
       <Field label="Result">
-        <select
-          className={inputClass}
+        <AppSelect
           value={levelId}
-          onChange={(event) => setLevelId(event.target.value)}
-        >
-          {compressLevels.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </select>
+          options={compressLevels.map((item) => ({ value: item.id, label: item.label }))}
+          onChange={setLevelId}
+        />
       </Field>
       <form
         onSubmit={async (event) => {

@@ -74,7 +74,7 @@ function AccountMenu() {
               Subscribe
             </Link>
             <Link
-              href="/tools/typing#progress"
+              href="/tools/typing/progress"
               role="menuitem"
               className="block rounded-lg px-3 py-2 text-sm text-[#1c2834] hover:bg-[#e8f1f8]"
               onClick={() => setOpen(false)}

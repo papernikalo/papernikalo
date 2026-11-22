@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { AUTH_CHECK_MS, type PublicUser } from "@/lib/auth-config";
+import { clearStoredTypingHistory } from "@/lib/typing-progress";
 
 type AuthState = {
   user: PublicUser | null;
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch("/api/auth/refresh", { method: "POST" });
       if (response.status === 401) {
+        clearStoredTypingHistory();
         setUser(null);
         return;
       }
@@ -49,8 +51,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [validate]);
 
   const signOut = useCallback(async () => {
-    await fetch("/api/auth/sign-out", { method: "POST" });
-    setUser(null);
+    try {
+      await fetch("/api/auth/sign-out", { method: "POST" });
+    } finally {
+      clearStoredTypingHistory();
+      setUser(null);
+    }
   }, []);
 
   const value = useMemo(() => ({ user, ready, setUser, signOut }), [user, ready, signOut]);

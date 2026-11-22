@@ -1,5 +1,16 @@
 import { TARGET_WPM, MISTAKE_LIMIT } from "@/lib/typing-score";
 
+export const TYPING_HISTORY_KEY = "dhc-typing-history";
+
+/** Drops typing rows left in this browser. Account progress stays in the database. */
+export function clearStoredTypingHistory() {
+  try {
+    localStorage.removeItem(TYPING_HISTORY_KEY);
+  } catch {
+    // This browser refused storage.
+  }
+}
+
 const DURATIONS = new Set([60, 120, 300, 600]);
 
 export type TypingAttemptInput = {
