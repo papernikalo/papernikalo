@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { TransactionList } from "@/components/transaction-list";
 import { LegalPage } from "@/components/legal-page";
+import { privatePageMetadata } from "@/lib/seo";
 import { hasSessionCookie } from "@/lib/session-cookie";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = privatePageMetadata({
+  path: "/transactions",
   title: "Transactions",
   description: "Payments captured for your PaperNikalo account.",
-};
+});
 
 export const instant = false;
 

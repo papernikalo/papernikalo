@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { JsonLd } from "@/components/json-ld";
 import { ContactFacts, LegalPage } from "@/components/legal-page";
 import { merchant } from "@/lib/merchant";
+import { pageJsonLd, pageMetadata, publicPage } from "@/lib/seo";
 import { siteName } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Terms",
-  description: `Terms for using ${siteName} and paying ${merchant.legalName}.`,
-};
+const page = publicPage("/terms");
+
+export const metadata: Metadata = pageMetadata(page);
 
 export default function TermsPage() {
   const courts = merchant.city.trim()
@@ -16,9 +17,10 @@ export default function TermsPage() {
 
   return (
     <LegalPage
-      title="Terms and conditions"
+      title={page.title}
       description={`These terms apply to ${siteName}. Last updated 21 November 2026.`}
     >
+      <JsonLd data={pageJsonLd(page)} />
       <p>
         {merchant.legalName} offers {siteName}. Using the site or paying for the form tools means
         you accept these terms.

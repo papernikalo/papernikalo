@@ -1,18 +1,34 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { JsonLd } from "@/components/json-ld";
 import { PageFrame } from "@/components/page-frame";
 import { jobs } from "@/lib/content";
 import { tabByHref } from "@/lib/nav";
+import { pageJsonLd, pageMetadata, publicPage } from "@/lib/seo";
 
 const tab = tabByHref("/jobs");
+const page = publicPage("/jobs");
 
-export const metadata: Metadata = {
-  title: tab.label,
-  description: tab.summary,
-};
+export const metadata: Metadata = pageMetadata(page);
 
 export default function JobsPage() {
   return (
-    <PageFrame title={tab.label} summary={tab.summary}>
+    <PageFrame title={page.title} summary={tab.summary}>
+      <JsonLd data={pageJsonLd(page)} />
+      <p className="mb-6 text-sm leading-6 text-[#52606d]">
+        Names for these exams are in the{" "}
+        <Link
+          href="/#job-directory"
+          className="font-medium text-[#1d4e89] underline underline-offset-4"
+        >
+          government job directory
+        </Link>
+        . Sample questions are on the{" "}
+        <Link href="/practice" className="font-medium text-[#1d4e89] underline underline-offset-4">
+          practice page
+        </Link>
+        .
+      </p>
       <ul className="grid gap-4">
         {jobs.map((job) => (
           <li

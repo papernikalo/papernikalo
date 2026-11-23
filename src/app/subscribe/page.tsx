@@ -5,12 +5,14 @@ import { LegalPage } from "@/components/legal-page";
 import { formTools } from "@/lib/catalog";
 import { formatInr } from "@/lib/format";
 import { merchant } from "@/lib/merchant";
+import { privatePageMetadata } from "@/lib/seo";
 import { hasSessionCookie } from "@/lib/session-cookie";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = privatePageMetadata({
+  path: "/subscribe",
   title: "Subscribe",
   description: `${formTools.name} is ${formatInr(formTools.amountPaise)}.`,
-};
+});
 
 export const instant = false;
 

@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/json-ld";
 import { ContactFacts, LegalPage } from "@/components/legal-page";
 import { merchant } from "@/lib/merchant";
+import { pageJsonLd, pageMetadata, publicPage } from "@/lib/seo";
 import { siteName } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "About",
-  description: `What ${siteName} lists, and who runs it.`,
-};
+const page = publicPage("/about");
+
+export const metadata: Metadata = pageMetadata(page);
 
 export default function AboutPage() {
   return (
     <LegalPage
-      title="About"
+      title={page.title}
       description="Exam names from across India, plus tools for the photo and papers a form asks for."
     >
+      <JsonLd data={pageJsonLd(page)} />
       <p>
         {merchant.legalName} runs {siteName}. The list covers recruitment exams from Indian
         government bodies, and a name is linked when the official address is known. Vacancy

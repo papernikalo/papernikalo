@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { JsonLd } from "@/components/json-ld";
 import { ContactFacts, LegalPage } from "@/components/legal-page";
 import { merchant } from "@/lib/merchant";
+import { pageJsonLd, pageMetadata, publicPage } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "Cancellation and refunds",
-  description: `How to cancel a ${merchant.legalName} payment and when a refund is sent.`,
-};
+const page = publicPage("/refunds");
+
+export const metadata: Metadata = pageMetadata(page);
 
 export default function RefundsPage() {
   return (
     <LegalPage
-      title="Cancellation and refunds"
+      title={page.title}
       description="Cancellation and refunds are separate. Last updated 21 November 2026."
     >
+      <JsonLd data={pageJsonLd(page)} />
       <h2>Cancellation</h2>
       <p>
         You can cancel before paying by closing the payment window. No charge is made for a window
@@ -23,7 +25,7 @@ export default function RefundsPage() {
       <p>
         The form tools are available in the browser when the{" "}
         <Link href="/tools" className="underline underline-offset-4">
-          tools
+          form tools
         </Link>{" "}
         page opens. If you were charged twice for one purchase, or you paid and the tools page does
         not open, write through the{" "}

@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { JsonLd } from "@/components/json-ld";
 import { ContactFacts, LegalPage } from "@/components/legal-page";
 import { merchant } from "@/lib/merchant";
+import { pageJsonLd, pageMetadata, publicPage } from "@/lib/seo";
 import { siteName } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Privacy",
-  description: `What ${siteName} collects when you use the site or pay.`,
-};
+const page = publicPage("/privacy");
+
+export const metadata: Metadata = pageMetadata(page);
 
 export default function PrivacyPage() {
   return (
     <LegalPage
-      title="Privacy policy"
+      title={page.title}
       description={`How ${merchant.legalName} handles information on ${siteName}. Last updated 21 November 2026.`}
     >
+      <JsonLd data={pageJsonLd(page)} />
       <p>
         You can read the pages without an account. If you sign up, we keep your name, user id,
         email, and mobile number. A profile picture you add on the account page is kept with that

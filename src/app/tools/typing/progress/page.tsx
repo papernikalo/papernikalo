@@ -3,12 +3,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageFrame } from "@/components/page-frame";
 import { TypingProgress } from "@/components/tools/typing-progress-view";
+import { privatePageMetadata } from "@/lib/seo";
 import { hasSessionCookie } from "@/lib/session-cookie";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = privatePageMetadata({
+  path: "/tools/typing/progress",
   title: "Typing progress",
   description: "Typing attempts saved on this PaperNikalo account.",
-};
+});
 
 export const instant = false;
 

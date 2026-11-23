@@ -1,18 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { JsonLd } from "@/components/json-ld";
 import { governmentJobNames, governmentJobs } from "@/lib/content";
 import { tabs } from "@/lib/nav";
-import { siteName, siteTagline } from "@/lib/site";
+import { pageJsonLd, pageMetadata, publicPage } from "@/lib/seo";
+import { siteTagline } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: { absolute: siteName },
-  description: `${siteTagline}. ${governmentJobNames.join(", ")}.`,
-  keywords: governmentJobNames,
-};
+const page = publicPage("/");
+
+export const metadata: Metadata = pageMetadata(page);
 
 export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+      <JsonLd data={pageJsonLd(page)} />
       <section className="mx-auto max-w-3xl text-center">
         <div>
           <p className="text-sm font-medium text-[#1d4e89]">Central and state exams</p>
@@ -51,7 +52,7 @@ export default function Home() {
             >
               <p className="font-medium">{tab.label}</p>
               <p className="mt-2 flex-1 text-sm leading-6 text-[#52606d]">{tab.summary}</p>
-              <p className="mt-4 text-sm font-medium text-[#1d4e89]">Open</p>
+              <p className="mt-4 text-sm font-medium text-[#1d4e89]">Open {tab.label.toLowerCase()}</p>
             </Link>
           </li>
         ))}

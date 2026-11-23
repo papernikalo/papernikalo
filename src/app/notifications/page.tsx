@@ -1,18 +1,27 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { JsonLd } from "@/components/json-ld";
 import { PageFrame } from "@/components/page-frame";
 import { notifications } from "@/lib/content";
 import { tabByHref } from "@/lib/nav";
+import { pageJsonLd, pageMetadata, publicPage } from "@/lib/seo";
 
 const tab = tabByHref("/notifications");
+const page = publicPage("/notifications");
 
-export const metadata: Metadata = {
-  title: tab.label,
-  description: tab.summary,
-};
+export const metadata: Metadata = pageMetadata(page);
 
 export default function NotificationsPage() {
   return (
-    <PageFrame title={tab.label} summary={tab.summary}>
+    <PageFrame title={page.title} summary={tab.summary}>
+      <JsonLd data={pageJsonLd(page)} />
+      <p className="mb-6 text-sm leading-6 text-[#52606d]">
+        The same exams are listed as{" "}
+        <Link href="/jobs" className="font-medium text-[#1d4e89] underline underline-offset-4">
+          sample job notices
+        </Link>
+        .
+      </p>
       <ul className="grid gap-3">
         {notifications.map((item) => (
           <li

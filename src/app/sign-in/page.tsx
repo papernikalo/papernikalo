@@ -3,11 +3,13 @@ import { redirect } from "next/navigation";
 import { SignInForm } from "@/components/auth-forms";
 import { LegalPage } from "@/components/legal-page";
 import { readCurrentUser } from "@/lib/auth";
+import { privatePageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = privatePageMetadata({
+  path: "/sign-in",
   title: "Sign in",
   description: "Sign in with the user id and password you chose.",
-};
+});
 
 export const instant = false;
 

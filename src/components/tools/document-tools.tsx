@@ -385,7 +385,13 @@ function PhotoResizer() {
       {error ? <ErrorNote>{error}</ErrorNote> : null}
       {preview ? (
         <div className="grid gap-2">
-          <img src={preview} alt="Resized form photo" className="max-h-64 w-auto rounded-md border border-[#d5dee6] bg-white" />
+          <img
+            src={preview}
+            alt="Resized form photo"
+            loading="lazy"
+            decoding="async"
+            className="max-h-64 w-auto rounded-md border border-[#d5dee6] bg-white"
+          />
           <ResultNote>{savedSize}</ResultNote>
           <DownloadLink href={preview} filename="form-photo.jpg">
             Download JPG
@@ -487,7 +493,13 @@ function SignatureCrop() {
       {error ? <ErrorNote>{error}</ErrorNote> : null}
       {preview ? (
         <div className="grid gap-2">
-          <img src={preview} alt="Cropped signature" className="max-w-full rounded-md border border-[#d5dee6] bg-white" />
+          <img
+            src={preview}
+            alt="Cropped signature"
+            loading="lazy"
+            decoding="async"
+            className="max-w-full rounded-md border border-[#d5dee6] bg-white"
+          />
           <DownloadLink href={preview} filename="signature.png">
             Download PNG
           </DownloadLink>
@@ -567,7 +579,13 @@ function PlainBackground() {
       {error ? <ErrorNote>{error}</ErrorNote> : null}
       {preview ? (
         <div className="grid gap-2">
-          <img src={preview} alt="Photo with a plain background" className="max-h-72 w-auto rounded-md border border-[#d5dee6] bg-white" />
+          <img
+            src={preview}
+            alt="Photo with a plain background"
+            loading="lazy"
+            decoding="async"
+            className="max-h-72 w-auto rounded-md border border-[#d5dee6] bg-white"
+          />
           <DownloadLink href={preview} filename="plain-background.jpg">
             Download JPG
           </DownloadLink>
@@ -876,7 +894,9 @@ function PagePreview({ page, index }: { page: Blob; index: number }) {
     <li className="grid gap-2">
       <img
         src={href}
-        alt={`Page ${index + 1}`}
+        alt={`Scanned page ${index + 1} converted to a JPG`}
+        loading="lazy"
+        decoding="async"
         className="max-h-72 w-full rounded-md border border-[#d5dee6] bg-white object-contain"
       />
       <DownloadLink href={href} filename={`page-${index + 1}.jpg`}>
