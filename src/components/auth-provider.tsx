@@ -29,15 +29,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.status === 401) {
         clearStoredTypingHistory();
         setUser(null);
-        return;
+      } else if (response.ok) {
+        const body = (await response.json()) as { user?: PublicUser };
+        setUser(body.user ?? null);
       }
-      if (!response.ok) return;
-      const body = (await response.json()) as { user?: PublicUser };
-      setUser(body.user ?? null);
-    } catch {
-      // Keep the current sign-in if the network check fails. The next 5-minute check tries again.
-    } finally {
       setReady(true);
+    } catch {
+      // Keep the server-rendered sign-in. The next 5-minute check tries again.
     }
   }, []);
 
@@ -56,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       clearStoredTypingHistory();
       setUser(null);
+      setReady(true);
     }
   }, []);
 

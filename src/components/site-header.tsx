@@ -4,12 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
+import type { PublicUser } from "@/lib/auth-config";
 import { tabs } from "@/lib/nav";
 import { siteName } from "@/lib/site";
 
-function AccountMenu() {
+export function AccountMenu({ initialUser }: { initialUser: PublicUser | null }) {
   const pathname = usePathname();
-  const { user, signOut } = useAuth();
+  const { user, ready, signOut } = useAuth();
+  const current = ready ? user : (user ?? initialUser);
   const signingIn = pathname === "/sign-in";
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -34,20 +36,20 @@ function AccountMenu() {
     };
   }, [open]);
 
-  if (user) {
-    const letter = (user.name.trim() || user.userId).charAt(0).toUpperCase();
+  if (current) {
+    const letter = (current.name.trim() || current.userId).charAt(0).toUpperCase();
     return (
       <div className="relative" ref={menuRef}>
         <button
           type="button"
           aria-haspopup="menu"
           aria-expanded={open}
-          aria-label={`Account menu for ${user.name.trim() || user.userId}`}
+          aria-label={`Account menu for ${current.name.trim() || current.userId}`}
           onClick={() => setOpen((current) => !current)}
           className="grid h-9 w-9 place-items-center overflow-hidden rounded-full border border-[#1d4e89] bg-[#ffffff] text-sm font-semibold text-[#1d4e89] hover:bg-[#e8f1f8]"
         >
-          {user.photo ? (
-            <img src={user.photo} alt="" className="h-full w-full object-cover" />
+          {current.photo ? (
+            <img src={current.photo} alt="" className="h-full w-full object-cover" />
           ) : (
             letter
           )}
@@ -121,7 +123,13 @@ function AccountMenu() {
   );
 }
 
-export function SiteHeader() {
+export function SiteHeader({
+  mobileAccount,
+  desktopAccount,
+}: {
+  mobileAccount: React.ReactNode;
+  desktopAccount: React.ReactNode;
+}) {
   const pathname = usePathname();
 
   return (
@@ -131,9 +139,7 @@ export function SiteHeader() {
           <Link href="/" className="shrink-0 text-2xl font-semibold tracking-tight sm:text-3xl">
             {siteName}
           </Link>
-          <div className="lg:hidden">
-            <AccountMenu />
-          </div>
+          <div className="lg:hidden">{mobileAccount}</div>
         </div>
         <nav aria-label="Primary" className="flex flex-wrap gap-1 lg:flex-1">
           {tabs.map((tab) => {
@@ -154,9 +160,7 @@ export function SiteHeader() {
             );
           })}
         </nav>
-        <div className="hidden lg:block">
-          <AccountMenu />
-        </div>
+        <div className="hidden lg:block">{desktopAccount}</div>
       </div>
     </header>
   );

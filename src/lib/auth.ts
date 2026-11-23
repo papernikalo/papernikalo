@@ -2,10 +2,12 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import bcrypt from "bcryptjs";
 import { MongoServerError, ObjectId } from "mongodb";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import {
   ACCESS_COOKIE,
   ACCESS_SECONDS,
   AuthError,
+  logAccountFailure,
   REFRESH_COOKIE,
   REFRESH_SECONDS,
   type PublicUser,
@@ -46,6 +48,9 @@ type AccountInput = {
 function authSecret() {
   const secret = process.env.AUTH_SECRET?.trim() ?? "";
   if (secret.length < 32) {
+    logAccountFailure("AUTH_SECRET is missing or shorter than 32 characters", undefined, {
+      length: secret.length,
+    });
     throw new AuthError("Accounts are not available right now.", 503);
   }
   return secret;
@@ -367,6 +372,44 @@ export async function readAccessUserId() {
   if (!access) return null;
   return readAccess(access);
 }
+
+/** The signed-in account for this request, without rotating the refresh key. */
+export const readCurrentUser = cache(async (): Promise<PublicUser | null> => {
+  try {
+    const jar = await cookies();
+    const access = jar.get(ACCESS_COOKIE)?.value;
+    const refreshToken = jar.get(REFRESH_COOKIE)?.value;
+    if (!access && !refreshToken) return null;
+
+    authSecret();
+    const { users, sessions } = await collections();
+    const userId = access ? readAccess(access) : null;
+    if (userId) {
+      const user = await users.findOne({ userId });
+      if (user) return publicUser(user);
+    }
+
+    if (!refreshToken) return null;
+    const presented = hashToken(refreshToken);
+    const now = new Date();
+    const session = await sessions.findOne({
+      $or: [{ tokenHash: presented }, { previousHash: presented }],
+    });
+    if (!session || session.expiresAt.getTime() <= now.getTime()) return null;
+    if (
+      session.previousHash === presented &&
+      (!session.previousValidUntil || session.previousValidUntil.getTime() <= now.getTime())
+    ) {
+      return null;
+    }
+
+    const user = await users.findOne({ userId: session.userId });
+    return user ? publicUser(user) : null;
+  } catch (error) {
+    logAccountFailure("Could not read the signed-in account", error);
+    return null;
+  }
+});
 
 export async function signOutAccount(refreshToken: string | undefined) {
   try {

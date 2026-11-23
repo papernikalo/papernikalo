@@ -1,5 +1,5 @@
 import { MongoClient, type Db } from "mongodb";
-import { AuthError } from "@/lib/auth-config";
+import { AuthError, logAccountFailure } from "@/lib/auth-config";
 
 const globalForMongo = globalThis as typeof globalThis & {
   mongoClient?: MongoClient;
@@ -24,9 +24,25 @@ async function ensureIndexes(db: Db) {
   ]);
 }
 
+function databaseTarget(uri: string | undefined) {
+  if (!uri) return { present: false };
+  const scheme = uri.startsWith("mongodb+srv:")
+    ? "mongodb+srv"
+    : uri.startsWith("mongodb:")
+      ? "mongodb"
+      : "other";
+  try {
+    const host = new URL(uri.replace(/^mongodb(\+srv)?:\/\//, "http://")).hostname;
+    return { present: true, scheme, host };
+  } catch {
+    return { present: true, scheme };
+  }
+}
+
 export async function getDb() {
   const uri = process.env.MONGODB_URI?.trim();
   if (!uri) {
+    logAccountFailure("MONGODB_URI is missing");
     throw new AuthError("Accounts are not available right now.", 503);
   }
 
@@ -37,7 +53,10 @@ export async function getDb() {
   try {
     await globalForMongo.mongoClient.connect();
   } catch (error) {
-    console.error(error);
+    const client = globalForMongo.mongoClient;
+    globalForMongo.mongoClient = undefined;
+    void client?.close().catch(() => undefined);
+    logAccountFailure("database connection failed", error, databaseTarget(uri));
     throw new AuthError("Accounts are not available right now.", 503);
   }
 
@@ -45,6 +64,7 @@ export async function getDb() {
   if (!globalForMongo.mongoIndexes) {
     globalForMongo.mongoIndexes = ensureIndexes(db).catch((error: unknown) => {
       globalForMongo.mongoIndexes = undefined;
+      logAccountFailure("database indexes failed", error, databaseTarget(uri));
       throw error;
     });
   }
