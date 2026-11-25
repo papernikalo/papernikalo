@@ -69,7 +69,7 @@ export function TypingTest() {
   const keystrokes = useRef(0);
   const settled = useRef(false);
   const passageRef = useRef<HTMLDivElement>(null);
-  const resultRef = useRef<HTMLElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
   const { user, ready } = useAuth();
   const [saveNote, setSaveNote] = useState("");
   const [gate, setGate] = useState<"closed" | "sign-in" | "confirm">("closed");
@@ -637,7 +637,7 @@ function ResultView({
   onAnother,
 }: {
   result: TypingScore;
-  resultRef: RefObject<HTMLElement | null>;
+  resultRef: RefObject<HTMLDivElement | null>;
   examName: string;
   language: string;
   durationLabel: string;
