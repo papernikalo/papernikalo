@@ -7,8 +7,8 @@ export const merchant = {
   legalName: "PaperNikalo",
   email: "support@papernikalo.in",
   phone: "",
-  address: "Bangalpara, 723121, Purulia, West Bengal",
-  city: "Adra",
+  address: "New Delhi",
+  city: "New Delhi",
 } as const;
 
 export function published(value: string) {

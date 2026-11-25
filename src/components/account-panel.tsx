@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
+import { AccountServices } from "@/components/services-board";
 import { useAuth } from "@/components/auth-provider";
 import type { PublicUser } from "@/lib/auth-config";
 
 const fieldClass =
-  "w-full rounded-xl border border-[#d5dee6] bg-white px-3 py-2.5 text-sm text-[#1c2834]";
+  "w-full rounded-[10px] border border-[#D1D5DB] bg-white px-3 py-3 text-[15px] text-[#111827] focus:border-[#C2410C] focus:outline-none";
 
 async function squarePhoto(file: File) {
   const bitmap = await createImageBitmap(file);
@@ -33,6 +34,7 @@ function AccountEditor({ user }: { user: PublicUser }) {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const letter = (name.trim() || user.userId).charAt(0).toUpperCase();
 
   async function choosePhoto(file: File | undefined) {
@@ -81,96 +83,112 @@ function AccountEditor({ user }: { user: PublicUser }) {
   }
 
   return (
-    <form className="mx-auto grid w-full max-w-md gap-4" onSubmit={save}>
-      <div className="grid gap-4 rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-4 sm:px-5">
-        <div className="flex items-center gap-4">
-          <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full border border-[#1d4e89] bg-[#ffffff] text-lg font-semibold text-[#1d4e89]">
-            {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : letter}
-          </div>
-          <div className="grid gap-2">
-            <label className="text-sm text-[#52606d]">
-              Profile picture
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="mt-1 block w-full text-sm text-[#1c2834] file:mr-3 file:rounded-full file:border file:border-[#1d4e89] file:bg-[#ffffff] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-[#1d4e89]"
-                onChange={(event) => void choosePhoto(event.target.files?.[0])}
-              />
-            </label>
+    <form className="grid gap-5" onSubmit={save}>
+      <section className="rounded-2xl border border-[#E3E6EB] bg-white p-6 sm:p-8">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div className="relative h-20 w-20 shrink-0">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={(event) => void choosePhoto(event.target.files?.[0])}
+            />
+            <button
+              type="button"
+              aria-label={photo ? "Change picture" : "Add picture"}
+              onClick={() => fileRef.current?.click()}
+              className="group relative grid h-20 w-20 place-items-center overflow-hidden rounded-full border border-[#C2410C] bg-[#FFF7F2] text-2xl font-semibold text-[#C2410C]"
+            >
+              {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : letter}
+              <span className="absolute inset-x-0 bottom-0 bg-[#C2410C]/90 py-1 text-[11px] font-semibold text-white">
+                {photo ? "Change" : "Add"}
+              </span>
+            </button>
             {photo ? (
               <button
                 type="button"
-                className="w-fit text-sm text-[#1d4e89] underline underline-offset-4"
+                aria-label="Remove picture"
                 onClick={() => setPhoto("")}
+                className="absolute -top-1 -right-1 grid h-7 w-7 place-items-center rounded-full border border-[#E3E6EB] bg-white text-sm leading-none font-semibold text-[#B91C1C] shadow-sm hover:border-[#B91C1C]"
               >
-                Remove picture
+                ×
               </button>
             ) : null}
           </div>
+          <div>
+            <p className="font-display text-2xl font-bold text-[#111827]">{name.trim() || user.userId}</p>
+            <p className="text-sm text-[#4B5563]">{user.userId}</p>
+          </div>
         </div>
-        <label className="grid gap-1 text-sm">
-          <span className="text-[#52606d]">Name</span>
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            autoComplete="name"
-            required
-            minLength={2}
-            maxLength={80}
-            className={fieldClass}
-          />
-        </label>
-        <div className="grid gap-1 text-sm">
-          <span className="text-[#52606d]">User id</span>
-          <p className="px-3 py-2.5">{user.userId}</p>
+        <div className="mt-6">
+          <AccountServices />
         </div>
-        <label className="grid gap-1 text-sm">
-          <span className="text-[#52606d]">Email</span>
-          <input
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            required
-            maxLength={120}
-            className={fieldClass}
-          />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span className="text-[#52606d]">Mobile number</span>
-          <input
-            value={mobile}
-            onChange={(event) => setMobile(event.target.value)}
-            type="tel"
-            autoComplete="tel"
-            inputMode="tel"
-            required
-            maxLength={14}
-            className={fieldClass}
-          />
-        </label>
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <label className="grid gap-1.5 text-sm font-semibold">
+            Name
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              autoComplete="name"
+              required
+              minLength={2}
+              maxLength={80}
+              className={fieldClass}
+            />
+          </label>
+          <label className="grid gap-1.5 text-sm font-semibold">
+            User id
+            <input value={user.userId} readOnly className={`${fieldClass} bg-[#F6F7F9] text-[#4B5563]`} />
+          </label>
+          <label className="grid gap-1.5 text-sm font-semibold">
+            Email
+            <input
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              required
+              maxLength={120}
+              className={fieldClass}
+            />
+          </label>
+          <label className="grid gap-1.5 text-sm font-semibold">
+            Mobile number
+            <input
+              value={mobile}
+              onChange={(event) => setMobile(event.target.value)}
+              type="tel"
+              autoComplete="tel"
+              inputMode="tel"
+              required
+              maxLength={14}
+              className={fieldClass}
+            />
+          </label>
+        </div>
+      </section>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-[#4B5563]">The user id stays as it was when you signed up.</p>
+        <button
+          type="submit"
+          disabled={busy}
+          className="inline-flex min-h-11 items-center rounded-[10px] bg-[#C2410C] px-[22px] py-3 text-sm font-semibold text-white hover:bg-[#9A3412] disabled:cursor-default disabled:opacity-60"
+        >
+          {busy ? "Saving…" : "Save"}
+        </button>
       </div>
-      <button
-        type="submit"
-        disabled={busy}
-        className="w-full rounded-full bg-[#1c2834] px-4 py-2.5 text-sm font-medium text-[#f3f5f7] disabled:cursor-default disabled:opacity-60"
-      >
-        {busy ? "Saving…" : "Save"}
-      </button>
       {notice ? (
-        <p className="text-sm text-[#1d4e89]" role="status">
+        <p className="text-sm font-medium text-[#166534]" role="status">
           {notice}
         </p>
       ) : null}
       {error ? (
-        <p className="text-sm text-[#1d4e89]" role="status">
+        <p className="text-sm font-medium text-[#B91C1C]" role="status">
           {error}
         </p>
       ) : null}
-      <p className="text-sm leading-6 text-[#52606d]">
-        The user id stays as it was when you signed up. You stay signed in on this browser.
-      </p>
     </form>
   );
 }
@@ -179,22 +197,28 @@ export function AccountPanel() {
   const { user, ready } = useAuth();
 
   if (!ready) {
-    return <p className="mx-auto max-w-md text-center text-[#52606d]">Checking your sign-in…</p>;
+    return <p className="mx-auto max-w-md text-center text-[#4B5563]">Checking your sign-in…</p>;
   }
 
   if (!user) {
     return (
-      <p className="mx-auto max-w-md text-center">
-        Sign in to see these details.{" "}
-        <Link href="/sign-in" className="underline underline-offset-4">
-          Sign in
-        </Link>{" "}
-        or{" "}
-        <Link href="/signup" className="underline underline-offset-4">
-          create an account
-        </Link>
-        .
-      </p>
+      <div className="flex max-w-lg flex-col gap-4 rounded-2xl border border-[#E3E6EB] bg-white p-6">
+        <p className="text-[15px] leading-relaxed text-[#4B5563]">Sign in to see these details.</p>
+        <div className="flex flex-wrap justify-end gap-3">
+          <Link
+            href="/signup"
+            className="inline-flex min-h-11 items-center rounded-[10px] border border-[#D1D5DB] bg-white px-[18px] font-semibold text-[#111827]"
+          >
+            Create an account
+          </Link>
+          <Link
+            href="/sign-in"
+            className="inline-flex min-h-11 items-center rounded-[10px] bg-[#C2410C] px-[18px] font-semibold text-white hover:bg-[#9A3412]"
+          >
+            Sign in
+          </Link>
+        </div>
+      </div>
     );
   }
 

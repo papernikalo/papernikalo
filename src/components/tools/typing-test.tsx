@@ -9,14 +9,15 @@ import {
   type RefObject,
 } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { AppSelect } from "@/components/app-select";
 import { useAuth } from "@/components/auth-provider";
+import { LeaveGuard } from "@/components/leave-guard";
+import { ConfirmStartDialog, SignInModal } from "@/components/start-dialogs";
+import { useTestChrome } from "@/components/test-chrome";
 import { typingPassages } from "@/lib/typing-passages";
+import { clearLocalDraft, writeLocalDraft } from "@/lib/local-draft";
 import { parseTypingAttempt } from "@/lib/typing-progress";
 import {
   MISTAKE_LIMIT,
-  TARGET_WPM,
   formatClock,
   scoreAttempt,
   wordsOf,
@@ -24,28 +25,42 @@ import {
   type TypingScore,
 } from "@/lib/typing-score";
 
-const durations = [
-  { value: "600", label: "10 min (exam)" },
-  { value: "300", label: "5 min" },
-  { value: "120", label: "2 min" },
-  { value: "60", label: "1 min" },
+const exams = [
+  { id: "ssc-chsl", name: "SSC CHSL", posts: "LDC / JSA, DEO skill test", langs: "English · Hindi" },
+  { id: "ssc-cgl", name: "SSC CGL", posts: "Data Entry Speed Test (DEST)", langs: "English" },
+  { id: "dhc", name: "Delhi High Court", posts: "JJA, SPA, Personal Assistant", langs: "English · Hindi" },
+  { id: "sci", name: "Supreme Court", posts: "Junior Court Assistant", langs: "English" },
+  { id: "aiims", name: "AIIMS", posts: "LDC, UDC, Stenographer", langs: "English · Hindi" },
+  { id: "dsssb", name: "DSSSB", posts: "LDC, Junior Assistant", langs: "English · Hindi" },
+  { id: "rrb", name: "RRB NTPC", posts: "Clerk, Typist posts", langs: "English · Hindi" },
+  { id: "other", name: "Other / Custom", posts: "Set your own time and rules", langs: "English · Hindi" },
 ];
 
-const passageOptions = [
-  ...typingPassages.map((item, index) => ({
-    value: String(index),
-    label: `${index + 1}. ${item.title}`,
-  })),
-  { value: "custom", label: "Paste your own passage" },
+const durationChoices = [
+  { value: "300", label: "5 min" },
+  { value: "600", label: "10 min" },
+  { value: "900", label: "15 min" },
+];
+
+const TYPING_DRAFT_KEY = "papernikalo-typing-draft";
+
+const passageChoices = [
+  { value: "random", label: "Random passage" },
+  { value: "6", label: "Previous-year style" },
+  { value: "0", label: "Legal / court matter" },
+  { value: "4", label: "General article" },
 ];
 
 export function TypingTest() {
+  const [phase, setPhase] = useState<"setup" | "test" | "result">("setup");
+  const [examId, setExamId] = useState("dhc");
+  const [language, setLanguage] = useState("English");
+  const [passageChoice, setPassageChoice] = useState("random");
   const [passageId, setPassageId] = useState("0");
   const [duration, setDuration] = useState("600");
   const [allowBackspace, setAllowBackspace] = useState(true);
-  const [highlight, setHighlight] = useState(true);
-  const [draft, setDraft] = useState("");
-  const [customText, setCustomText] = useState("");
+  const [highlight, setHighlight] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [typed, setTyped] = useState("");
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [finished, setFinished] = useState(false);
@@ -56,24 +71,33 @@ export function TypingTest() {
   const passageRef = useRef<HTMLDivElement>(null);
   const resultRef = useRef<HTMLElement>(null);
   const { user, ready } = useAuth();
-  const router = useRouter();
   const [saveNote, setSaveNote] = useState("");
-  const [signInPrompt, setSignInPrompt] = useState(false);
+  const [gate, setGate] = useState<"closed" | "sign-in" | "confirm">("closed");
+  const pendingStart = useRef(false);
+  const pauseStarted = useRef<number | null>(null);
   const signedIn = Boolean(user);
+  const exam = exams.find((item) => item.id === examId) ?? exams[2];
+  useTestChrome(phase === "test" && !paused);
 
-  const custom = passageId === "custom";
-  const passage = useMemo(() => {
-    if (custom) {
-      const text = customText.trim();
-      return { title: "Your passage", words: text ? wordsOf(text) : [] };
+  useEffect(() => {
+    if (phase !== "test") {
+      clearLocalDraft(TYPING_DRAFT_KEY);
+      return;
     }
+    writeLocalDraft(
+      TYPING_DRAFT_KEY,
+      JSON.stringify({ typed, passageId, examId, language, duration, allowBackspace }),
+    );
+  }, [phase, typed, passageId, examId, language, duration, allowBackspace]);
+
+  const passage = useMemo(() => {
     const index = Number(passageId);
     const order = [...typingPassages.slice(index), ...typingPassages.slice(0, index)];
     return {
       title: order[0]?.title ?? "Passage",
       words: wordsOf(order.map((item) => item.text).join(" ")),
     };
-  }, [custom, customText, passageId]);
+  }, [passageId]);
 
   const reset = useCallback(() => {
     setTyped("");
@@ -82,13 +106,20 @@ export function TypingTest() {
     setResult(null);
     setNow(0);
     setSaveNote("");
+    setPaused(false);
+    pauseStarted.current = null;
     keystrokes.current = 0;
     settled.current = false;
     if (passageRef.current) passageRef.current.scrollTop = 0;
   }, []);
 
+  const abandonTest = useCallback(() => {
+    clearLocalDraft(TYPING_DRAFT_KEY);
+    reset();
+    setPhase("setup");
+  }, [reset]);
+
   const durationSeconds = Number(duration);
-  const running = startedAt !== null && !finished;
   const passageReady = passage.words.length > 0;
   const elapsed = startedAt === null ? 0 : Math.min(durationSeconds, (now - startedAt) / 1000);
   const remaining = durationSeconds - elapsed;
@@ -98,26 +129,9 @@ export function TypingTest() {
   const liveGross =
     startedAt === null ? 0 : Math.round(liveChars / 5 / (Math.max(elapsed, 1) / 60));
 
-  const requestReset = useCallback(() => {
-    if (!ready) return;
-    if (!signedIn) {
-      setSignInPrompt(true);
-      return;
-    }
-    reset();
-  }, [ready, reset, signedIn]);
-
-  useEffect(() => {
-    if (!signInPrompt) return;
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setSignInPrompt(false);
-    }
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [signInPrompt]);
-
-  const finish = useCallback(() => {
+  const finish = useCallback((options?: { fromTimer?: boolean }) => {
     if (finished || settled.current || startedAt === null) return;
+    if (!options?.fromTimer && typed.trim().length === 0) return;
     settled.current = true;
     const seconds = Math.min(durationSeconds, (performance.now() - startedAt) / 1000);
     const score = scoreAttempt({
@@ -127,13 +141,13 @@ export function TypingTest() {
       keystrokes: keystrokes.current,
     });
     setFinished(true);
+    setPaused(false);
     setResult(score);
-    const passageLabel = custom
-      ? "Your passage"
-      : `${Number(passageId) + 1}. ${typingPassages[Number(passageId)]?.title ?? "Passage"}`;
+    setPhase("result");
+    const passageLabel = `${Number(passageId) + 1}. ${typingPassages[Number(passageId)]?.title ?? "Passage"}`;
     const attempt = parseTypingAttempt({
       passageLabel,
-      passageIndex: custom ? null : Number(passageId),
+      passageIndex: Number(passageId),
       durationSeconds,
       seconds,
       gross: score.gross,
@@ -173,7 +187,6 @@ export function TypingTest() {
     durationSeconds,
     typed,
     passage.words,
-    custom,
     passageId,
     allowBackspace,
     signedIn,
@@ -185,14 +198,14 @@ export function TypingTest() {
   }, [finish]);
 
   useEffect(() => {
-    if (startedAt === null || finished) return;
+    if (startedAt === null || finished || paused) return;
     const timer = setInterval(() => {
       const tick = performance.now();
       setNow(tick);
-      if ((tick - startedAt) / 1000 >= durationSeconds) finishRef.current();
+      if ((tick - startedAt) / 1000 >= durationSeconds) finishRef.current({ fromTimer: true });
     }, 250);
     return () => clearInterval(timer);
-  }, [startedAt, finished, durationSeconds]);
+  }, [startedAt, finished, durationSeconds, paused]);
 
   useEffect(() => {
     if (result) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -200,15 +213,15 @@ export function TypingTest() {
 
   useEffect(() => {
     const box = passageRef.current;
-    if (!box || !highlight) return;
+    if (!box || phase !== "test") return;
     const words = box.querySelectorAll<HTMLElement>("span[data-w]");
+    if (!words.length) return;
     const word = words[Math.max(0, Math.min(currentWord, words.length - 1))];
-    if (!word) return;
-    const top = word.offsetTop - box.offsetTop;
-    if (top > box.scrollTop + box.clientHeight - 60 || top < box.scrollTop) {
-      box.scrollTop = top - 40;
-    }
-  }, [currentWord, highlight, passage.words]);
+    const raw = word.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+    const top = Math.round(raw / 38) * 38;
+    if (Math.abs(box.scrollTop - top) < 2) return;
+    box.scrollTo({ top, behavior: "smooth" });
+  }, [currentWord, passage.words, phase]);
 
   function blockClipboard(event: { preventDefault: () => void }) {
     event.preventDefault();
@@ -217,380 +230,530 @@ export function TypingTest() {
   function onType(next: string) {
     if (finished || !passageReady) return;
     if (!allowBackspace && next.length < typed.length) return;
-    if (startedAt === null && next.length > 0) {
-      const stamp = performance.now();
-      setNow(stamp);
-      setStartedAt(stamp);
-    }
     setTyped(next);
   }
 
-  const characterTarget = Math.round((durationSeconds / 60) * TARGET_WPM * 5);
+  const durationLabel = durationChoices.find((item) => item.value === duration)?.label ?? "10 min";
+  const completedCount = /\s$/.test(typed) ? typedWords.length : Math.max(0, typedWords.length - 1);
+  let correctCount = 0;
+  for (let index = 0; index < completedCount; index += 1) {
+    if (typedWords[index] === passage.words[index]) correctCount += 1;
+  }
+  const liveAccuracy = completedCount === 0 ? 100 : (correctCount / completedCount) * 100;
+  const progress = passage.words.length
+    ? Math.min(100, (typedWords.length / passage.words.length) * 100)
+    : 0;
 
-  return (
-    <div className="grid gap-6">
-      <section className="grid gap-4 rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-4 sm:px-5">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <h2 className="font-medium">{signedIn ? "1. Set the test" : "Example test"}</h2>
-          <p className="text-sm text-[#52606d]">
-            {signedIn
-              ? running
-                ? "Reset to change the passage or the time."
-                : "Choose these before you start."
-              : "This example stays as it is. Sign in to change it or start again."}
-          </p>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_14rem]">
-          <AppSelect
-            label="Passage"
-            value={passageId}
-            options={passageOptions}
-            searchable
-            disabled={!signedIn || running}
-            onChange={(value) => {
-              setPassageId(value);
-              reset();
-            }}
-          />
-          <AppSelect
-            label="Time"
-            value={duration}
-            options={durations}
-            disabled={!signedIn || running}
-            onChange={(value) => {
-              setDuration(value);
-              reset();
-            }}
-          />
-        </div>
-        <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={allowBackspace}
-              disabled={!signedIn}
-              onChange={(event) => setAllowBackspace(event.target.checked)}
-            />
-            Allow backspace
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={highlight}
-              onChange={(event) => setHighlight(event.target.checked)}
-            />
-            Highlight the word you are on
-          </label>
-        </div>
-        <p className="text-sm leading-6 text-[#52606d]">
-          A pass is {TARGET_WPM} wpm with mistakes at or under {MISTAKE_LIMIT * 100}%, and that line
-          is only for the 10 minute setting. Speed counts every character, including spaces. A
-          capital or punctuation slip is half a mistake.
-        </p>
-        {custom ? (
-          <div className="grid gap-2 border-t border-[#d5dee6] pt-4">
-            <label
-              htmlFor="custom-passage"
-              className="text-xs font-semibold tracking-wider text-[#52606d] uppercase"
-            >
-              Your passage
-            </label>
-            <textarea
-              id="custom-passage"
-              value={draft}
-              disabled={!signedIn || running}
-              onChange={(event) => setDraft(event.target.value)}
-              className="min-h-28 w-full rounded-xl border border-[#d5dee6] bg-[#ffffff] px-4 py-3 text-sm disabled:opacity-70"
-              placeholder="Paste a judgment or order, then load it."
-            />
-            <div>
-              <button
-                type="button"
-                disabled={!signedIn || running || !draft.trim()}
-                onClick={() => {
-                  setCustomText(draft);
-                  reset();
-                }}
-                className="inline-flex h-10 items-center rounded-full bg-[#1c2834] px-4 text-sm font-medium text-[#f3f5f7] disabled:opacity-50"
-              >
-                Load passage
-              </button>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-[#52606d]">
-            The chosen passage comes first. The other passages follow, so a long test does not run
-            out of text.
-          </p>
-        )}
-      </section>
+  function choosePassage(value: string) {
+    setPassageChoice(value);
+    if (value !== "random") setPassageId(value);
+  }
 
-      <section className="grid gap-4">
-        <h2 className="font-medium">{signedIn ? "2. Type the passage" : "Type the passage"}</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat
-            label={result ? "Time used" : "Time left"}
-            value={formatClock(result ? result.seconds : remaining)}
-            tone={!result && remaining <= 60 && running ? "bad" : "accent"}
-          />
-          <Stat label="Gross speed" value={`${liveGross} wpm`} />
-          <Stat label="Words typed" value={String(typedWords.length)} />
-          <Stat label="Characters, with spaces" value={`${liveChars} / ${characterTarget}`} />
-        </div>
+  function begin() {
+    if (passageChoice === "random") {
+      setPassageId(String(Math.floor(Math.random() * typingPassages.length)));
+    }
+    reset();
+    const stamp = performance.now();
+    setNow(stamp);
+    setStartedAt(stamp);
+    setPhase("test");
+  }
 
-        <div
-          ref={passageRef}
-          aria-label="Passage to type"
-          onCopy={blockClipboard}
-          onCut={blockClipboard}
-          onDragStart={blockClipboard}
-          className="typing-passage relative max-h-64 overflow-y-auto rounded-lg border border-[#d5dee6] bg-[#ffffff] px-5 py-4 font-serif text-[1.05rem] leading-8 select-none"
+  function requestStart() {
+    if (!ready) {
+      pendingStart.current = true;
+      return;
+    }
+    setGate(user ? "confirm" : "sign-in");
+  }
+
+  useEffect(() => {
+    if (!ready || !pendingStart.current) return;
+    pendingStart.current = false;
+    setGate(user ? "confirm" : "sign-in");
+  }, [ready, user]);
+
+  function startDialogs() {
+    return (
+      <>
+        <SignInModal
+          open={gate === "sign-in"}
+          onClose={() => setGate("closed")}
+          onSignedIn={() => setGate("confirm")}
+        />
+        <ConfirmStartDialog
+          open={gate === "confirm"}
+          title="Start this test?"
+          body="The timer starts as soon as you confirm, and keeps running until you pause, submit, or the time ends."
+          confirmLabel="Start test"
+          confirmClass="rounded-[10px] bg-[#C2410C] px-[22px] py-3.5 font-semibold text-white"
+          onConfirm={() => {
+            setGate("closed");
+            begin();
+          }}
+          onCancel={() => setGate("closed")}
+        />
+      </>
+    );
+  }
+
+  function togglePause() {
+    if (startedAt === null || finished) return;
+    if (!paused) {
+      pauseStarted.current = performance.now();
+      setPaused(true);
+      return;
+    }
+    const held = performance.now() - (pauseStarted.current ?? performance.now());
+    pauseStarted.current = null;
+    setStartedAt((value) => (value === null ? value : value + held));
+    setNow(performance.now());
+    setPaused(false);
+  }
+
+  function testActions() {
+    const nothingTyped = typed.trim().length === 0;
+    return (
+      <>
+        <button
+          type="button"
+          onClick={togglePause}
+          disabled={startedAt === null || finished}
+          className="inline-flex min-h-11 items-center rounded-lg border border-[#D1D5DB] bg-white px-[18px] font-semibold text-[#374151] disabled:opacity-50"
         >
-          <div className="mb-1 font-sans text-xs font-semibold tracking-wider text-[#52606d] uppercase">
-            Read this · {passage.title}
+          {paused ? "Resume" : "Pause"}
+        </button>
+        <button
+          type="button"
+          onClick={() => finish()}
+          disabled={startedAt === null || finished || nothingTyped}
+          className="inline-flex min-h-11 items-center rounded-lg bg-[#C2410C] px-[18px] font-semibold text-white disabled:opacity-50"
+        >
+          Submit test
+        </button>
+      </>
+    );
+  }
+
+  function wordClass(index: number) {
+    if (index < completedCount) {
+      return typedWords[index] === passage.words[index]
+        ? "text-[#166534]"
+        : "bg-[#FEF2F2] text-[#B91C1C] underline decoration-2 underline-offset-4";
+    }
+    if (highlight && index === currentWord) return "rounded bg-[#FFE4D6] px-[3px] text-[#111827]";
+    return "text-[#6B7280]";
+  }
+
+  if (phase === "result" && result) {
+    return (
+      <>
+      {startDialogs()}
+      <ResultView
+        result={result}
+        resultRef={resultRef}
+        examName={exam.name}
+        language={language}
+        durationLabel={durationLabel}
+        examTimed={durationSeconds === 600}
+        saveNote={saveNote}
+        signedIn={signedIn}
+        onRetry={requestStart}
+        onAnother={() => {
+          reset();
+          setPhase("setup");
+        }}
+      />
+      </>
+    );
+  }
+
+  if (phase === "test") {
+    return (
+      <div className="bg-[#F6F7F9] text-[#111827]">
+        {startDialogs()}
+        <LeaveGuard active storageKey={TYPING_DRAFT_KEY} onLeave={abandonTest} />
+        <div className="border-b border-[#E3E6EB] bg-white">
+          <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-4 px-6 py-3.5">
+            <div className="flex flex-wrap items-center gap-3.5">
+              <span className="font-display text-xl font-bold">{exam.name}</span>
+              <span className="rounded-full bg-[#FFF7F2] px-3 py-1.5 text-[13px] font-semibold text-[#C2410C]">
+                {exam.name} · {language} · {durationLabel}
+              </span>
+            </div>
+            <div className="flex items-center gap-2.5">{testActions()}</div>
           </div>
-          {passage.words.length ? (
-            passage.words.map((word, index) => (
+        </div>
+        <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-5 px-6 py-7 pb-16">
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex flex-col gap-1 rounded-xl bg-[#111827] px-5 py-4 text-white">
+              <span className="text-[13px] text-[#D1D5DB]">
+                Time left
+              </span>
+              <span className="font-display text-[32px] leading-none font-bold">{formatClock(remaining)}</span>
+            </div>
+            <div className="flex flex-col gap-1 rounded-xl border border-[#E3E6EB] bg-white px-5 py-4">
+              <span className="text-[13px] text-[#4B5563]">Live speed</span>
+              <span className="font-display text-[32px] leading-none font-bold">
+                {liveGross} <span className="text-base font-medium text-[#4B5563]">wpm</span>
+              </span>
+            </div>
+            <div className="flex flex-col gap-1 rounded-xl border border-[#E3E6EB] bg-white px-5 py-4">
+              <span className="text-[13px] text-[#4B5563]">Accuracy</span>
+              <span className="font-display text-[32px] leading-none font-bold">
+                {liveAccuracy.toFixed(1)}
+                <span className="text-base font-medium text-[#4B5563]">%</span>
+              </span>
+            </div>
+            <div className="flex flex-col gap-1 rounded-xl border border-[#E3E6EB] bg-white px-5 py-4">
+              <span className="text-[13px] text-[#4B5563]">Words typed</span>
+              <span className="font-display text-[32px] leading-none font-bold">
+                {typedWords.length}{" "}
+                <span className="text-base font-medium text-[#4B5563]">/ {passage.words.length}</span>
+              </span>
+            </div>
+          </section>
+          <div className="h-1.5 overflow-hidden rounded-full bg-[#E3E6EB]">
+            <div className="h-1.5 bg-[#C2410C]" style={{ width: `${progress}%` }} />
+          </div>
+          <section
+            ref={passageRef}
+            aria-label="Passage"
+            onCopy={blockClipboard}
+            onCut={blockClipboard}
+            className="h-[230px] overflow-y-auto rounded-2xl border border-[#E3E6EB] bg-white px-8 font-passage text-[19px] leading-[38px] select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {passage.words.map((word, index) => (
               <span key={`${word}-${index}`}>
-                <span data-w="" className={highlight && index === currentWord ? "cw" : undefined}>
+                <span data-w="" className={wordClass(index)}>
                   {word}
                 </span>{" "}
               </span>
-            ))
-          ) : (
-            <p className="font-sans text-sm text-[#52606d]">
-              Load a passage above. The timer starts when you type the first character.
-            </p>
-          )}
-        </div>
-
-        <div className="grid gap-2">
-          <label htmlFor="typing-input" className="text-xs font-semibold tracking-wider text-[#52606d] uppercase">
-            Type here
-          </label>
-          <textarea
-            id="typing-input"
-            value={typed}
-            disabled={finished || !passageReady}
-            spellCheck={false}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            placeholder={
-              passageReady
-                ? "The timer starts on your first character."
-                : "Load a passage before typing."
-            }
-            onChange={(event) => onType(event.target.value)}
-            onKeyDown={(event) => {
-              if (finished || !passageReady) return;
-              if (!allowBackspace && (event.key === "Backspace" || event.key === "Delete")) {
-                event.preventDefault();
-                return;
-              }
-              if (event.key.length === 1 || event.key === "Backspace" || event.key === "Enter") {
-                keystrokes.current += 1;
-              }
-            }}
-            onPaste={blockClipboard}
-            onDrop={blockClipboard}
-            onCopy={blockClipboard}
-            onCut={blockClipboard}
-            onContextMenu={blockClipboard}
-            className="min-h-52 w-full resize-y rounded-lg border-2 border-[#d5dee6] bg-[#ffffff] px-5 py-4 font-serif text-[1.05rem] leading-8 text-[#1c2834] focus:border-[#1d4e89] focus:outline-none disabled:opacity-70"
-          />
-          <p className="text-sm text-[#52606d]">
-            Copy and paste are turned off. Match the capitals, punctuation, and spaces.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={requestReset}
-              className="inline-flex h-10 items-center rounded-full border border-[#1c2834] px-4 text-sm font-medium"
-            >
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={finish}
-              disabled={startedAt === null || finished}
-              className="inline-flex h-10 items-center rounded-full bg-[#1c2834] px-4 text-sm font-medium text-[#f3f5f7] disabled:opacity-50"
-            >
-              Submit test
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {result ? (
-        <ResultCard result={result} resultRef={resultRef} exam={durationSeconds === 600} />
-      ) : null}
-      {result && signedIn ? (
-        <p className="text-sm text-[#52606d]">
-          {saveNote || "Saving this attempt."}{" "}
-          <Link href="/tools/typing/progress" className="font-medium text-[#1d4e89] underline underline-offset-4">
-            View progress
-          </Link>
-        </p>
-      ) : null}
-      {result && ready && !signedIn ? (
-        <p className="text-sm text-[#52606d]">
-          This example is not saved. Sign in to keep your results and start again.
-        </p>
-      ) : null}
-      {signInPrompt ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-[#1c2834]/50 px-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reset-sign-in-title"
-            className="w-full max-w-md rounded-2xl border border-[#d5dee6] bg-[#ffffff] p-5 shadow-xl"
-          >
-            <h2 id="reset-sign-in-title" className="text-lg font-medium">
-              Sign in to reset
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[#52606d]">
-              This example stays on the page. Sign in to reset it, choose another passage, and save
-              your progress.
-            </p>
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setSignInPrompt(false)}
-                className="inline-flex h-10 items-center rounded-full border border-[#1c2834] px-4 text-sm font-medium"
-              >
-                Keep the example
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push("/sign-in")}
-                className="inline-flex h-10 items-center rounded-full bg-[#1c2834] px-4 text-sm font-medium text-[#f3f5f7]"
-              >
-                Sign in
-              </button>
+            ))}
+          </section>
+          <section className="flex flex-col gap-2">
+            <label htmlFor="typing-input" className="text-sm font-semibold">
+              Type the passage here
+            </label>
+            <textarea
+              id="typing-input"
+              value={typed}
+              disabled={finished || !passageReady || paused}
+              spellCheck={false}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              placeholder="Type the passage. The timer is already running."
+              onChange={(event) => onType(event.target.value)}
+              onKeyDown={(event) => {
+                if (finished || !passageReady || paused) return;
+                if (!allowBackspace && (event.key === "Backspace" || event.key === "Delete")) {
+                  event.preventDefault();
+                  return;
+                }
+                if (event.key.length === 1 || event.key === "Backspace" || event.key === "Enter") {
+                  keystrokes.current += 1;
+                }
+              }}
+              onPaste={blockClipboard}
+              onDrop={blockClipboard}
+              onCopy={blockClipboard}
+              onCut={blockClipboard}
+              onContextMenu={blockClipboard}
+              className="box-border min-h-[180px] w-full resize-y rounded-xl border-2 border-[#C2410C] bg-white px-5 py-[18px] font-passage text-lg leading-[1.8] text-[#111827] focus:outline-none disabled:opacity-70"
+            />
+            <div className="flex flex-wrap gap-4 text-[13px] text-[#4B5563]">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-[#166534]" />
+                Correct
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-[#B91C1C]" />
+                Mistake
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-[#C2410C]" />
+                Current word
+              </span>
+              <span>Copy-paste disabled · Backspace {allowBackspace ? "allowed" : "off"}</span>
             </div>
-          </div>
+          </section>
         </div>
-      ) : null}
-    </div>
-  );
-}
+      </div>
+    );
+  }
 
-
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "bad" | "accent" }) {
-  const toneClass = tone === "bad" ? "text-[#9b2c2c]" : tone === "accent" ? "text-[#1d4e89]" : "";
   return (
-    <div className="rounded-lg border border-[#d5dee6] bg-[#ffffff] px-4 py-3">
-      <span className="text-xs font-semibold tracking-wider text-[#52606d] uppercase">{label}</span>
-      <b className={`block font-mono text-xl font-medium tabular-nums ${toneClass}`}>{value}</b>
+    <div className="bg-[#F6F7F9] text-[#111827]">
+      {startDialogs()}
+      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-7 px-6 py-10 pb-[72px]">
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-[#4B5563]">
+            <Link href="/" className="text-[#4B5563] hover:text-[#111827]">
+              Home
+            </Link>{" "}
+            / Typing
+          </p>
+          <h1 className="font-display text-4xl font-bold">Choose your exam body</h1>
+          <p className="text-base text-[#4B5563]">
+            The test follows the selected exam&apos;s pattern — language, time limit and how mistakes are counted.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-start gap-7">
+          <section className="grid min-w-0 flex-[999_1_560px] grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
+            {exams.map((item) => {
+              const selected = item.id === examId;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setExamId(item.id)}
+                  className={
+                    selected
+                      ? "flex min-h-[132px] cursor-pointer flex-col gap-2 rounded-[14px] border-2 border-[#C2410C] bg-[#FFF7F2] p-5 text-left"
+                      : "flex min-h-[132px] cursor-pointer flex-col gap-2 rounded-[14px] border-2 border-[#E3E6EB] bg-white p-5 text-left"
+                  }
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="font-display text-[19px] font-semibold">{item.name}</span>
+                    {selected ? (
+                      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C2410C" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="m8 12 3 3 5-6" />
+                      </svg>
+                    ) : null}
+                  </span>
+                  <span className="text-sm leading-normal text-[#4B5563]">{item.posts}</span>
+                  <span className="text-[13px] font-medium text-[#374151]">{item.langs}</span>
+                </button>
+              );
+            })}
+          </section>
+          <aside className="flex flex-[1_1_320px] flex-col gap-[22px] rounded-2xl border border-[#E3E6EB] bg-white p-6">
+            <div className="flex flex-col gap-1">
+              <span className="text-[13px] font-semibold tracking-[0.06em] text-[#4B5563] uppercase">
+                Test setup
+              </span>
+              <span className="font-display text-[22px] font-semibold">{exam.name}</span>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <span className="text-sm font-semibold">Language</span>
+              <div className="flex gap-2">
+                {["English", "Hindi"].map((item) => (
+                  <button key={item} type="button" onClick={() => setLanguage(item)} className={pillClass(item === language)}>
+                    {item}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <span className="text-sm font-semibold">Duration</span>
+              <div className="flex gap-2">
+                {durationChoices.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setDuration(item.value)}
+                    className={pillClass(item.value === duration)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <label htmlFor="passage" className="text-sm font-semibold">
+                Passage
+              </label>
+              <select
+                id="passage"
+                value={passageChoice}
+                onChange={(event) => choosePassage(event.target.value)}
+                className="h-11 rounded-lg border border-[#D1D5DB] bg-white px-3 text-[15px]"
+              >
+                {passageChoices.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-3 text-[15px]">
+              <label className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={allowBackspace}
+                  onChange={(event) => setAllowBackspace(event.target.checked)}
+                  className="h-[18px] w-[18px] accent-[#C2410C]"
+                />
+                Allow backspace
+              </label>
+              <label className="flex items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={highlight}
+                  onChange={(event) => setHighlight(event.target.checked)}
+                  className="h-[18px] w-[18px] accent-[#C2410C]"
+                />
+                Highlight current word
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={requestStart}
+              className="rounded-[10px] bg-[#C2410C] px-5 py-3.5 text-center text-base font-semibold text-white"
+            >
+              Start test
+            </button>
+            <span className="text-[13px] leading-normal text-[#4B5563]">
+              Sign in to start. After you confirm, the timer starts immediately. A pass
+              on the 10 minute setting is {MISTAKE_LIMIT * 100}% mistakes or fewer.
+              {language === "Hindi" ? " Sample passages are in English." : ""}
+            </span>
+          </aside>
+        </div>
+      </div>
     </div>
   );
 }
 
+function pillClass(on: boolean) {
+  return on
+    ? "min-h-11 cursor-pointer rounded-full border border-[#C2410C] bg-[#C2410C] px-4 text-sm font-semibold text-white"
+    : "min-h-11 cursor-pointer rounded-full border border-[#D1D5DB] bg-white px-4 text-sm font-semibold text-[#374151]";
+}
 
-function ResultCard({
+function ResultView({
   result,
   resultRef,
-  exam,
+  examName,
+  language,
+  durationLabel,
+  examTimed,
+  saveNote,
+  signedIn,
+  onRetry,
+  onAnother,
 }: {
   result: TypingScore;
   resultRef: RefObject<HTMLElement | null>;
-  exam: boolean;
+  examName: string;
+  language: string;
+  durationLabel: string;
+  examTimed: boolean;
+  saveNote: string;
+  signedIn: boolean;
+  onRetry: () => void;
+  onAnother: () => void;
 }) {
-  const allowed = (MISTAKE_LIMIT * result.wordUnits).toFixed(1);
-  const mistakeLabel = result.mistakes % 1 ? result.mistakes.toFixed(1) : String(result.mistakes);
-  const qualified = exam && result.pass;
-  const failedExam = exam && !result.pass;
+  const qualified = examTimed && result.pass;
   return (
-    <section ref={resultRef} className="grid scroll-mt-6 gap-4">
-      <div
-        className={
-          qualified
-            ? "flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-lg border border-[#1d7a4c] bg-[#e5f2ea] px-4 py-3"
-            : failedExam
-              ? "flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-lg border border-[#9b2c2c] bg-[#fbe4e2] px-4 py-3"
-              : "flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-lg border border-[#1d4e89] bg-[#e7eef5] px-4 py-3"
-        }
-      >
-        <strong
-          className={
-            qualified ? "text-lg text-[#1d7a4c]" : failedExam ? "text-lg text-[#9b2c2c]" : "text-lg text-[#1d4e89]"
-          }
-        >
-          {exam ? (result.pass ? "Qualified" : "Not qualified yet") : "Practice result"}
-        </strong>
-        <span>
-          {result.gross.toFixed(1)} wpm gross · {result.errorPercent.toFixed(2)}% mistakes in{" "}
-          {formatClock(result.seconds)}
-        </span>
+    <div className="bg-[#F6F7F9] text-[#111827]">
+      <div ref={resultRef} className="mx-auto flex w-full max-w-[1200px] flex-col gap-7 px-6 py-10 pb-[72px]">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-col gap-2">
+            <span className="text-sm text-[#4B5563]">
+              {examName} · {language} · {durationLabel}
+            </span>
+            <h1 className="font-display text-4xl font-bold">Your result</h1>
+          </div>
+          <span
+            className={
+              qualified
+                ? "rounded-[10px] bg-[#DCFCE7] px-4 py-2.5 text-base font-bold text-[#166534]"
+                : "rounded-[10px] bg-[#FEF2F2] px-4 py-2.5 text-base font-bold text-[#B91C1C]"
+            }
+          >
+            {qualified ? "Qualified · target 40 wpm" : examTimed ? "Not qualified yet" : "Practice result"}
+          </span>
+        </div>
+        <section className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+          <ScoreTile label="Net speed" value={result.net.toFixed(0)} unit="wpm" />
+          <ScoreTile label="Accuracy" value={result.accuracy.toFixed(1)} unit="%" />
+          <ScoreTile label="Full mistakes" value={String(result.fullMistakes)} tone="bad" />
+          <ScoreTile label="Half mistakes" value={String(result.counts.half)} tone="warn" />
+        </section>
+        <section className="flex flex-col gap-4 rounded-2xl border border-[#E3E6EB] bg-white px-8 py-7">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Mistakes in your passage</h2>
+            <div className="flex flex-wrap gap-3.5 text-[13px] text-[#4B5563]">
+              <span>
+                <span className="text-[#B91C1C] line-through">word</span> wrong / missing
+              </span>
+              <span>
+                <span className="bg-[#FEF3C7] px-1">word</span> spelling / punctuation
+              </span>
+              <span>
+                <span className="font-semibold text-[#166534]">word</span> correct form
+              </span>
+            </div>
+          </div>
+          <p className="font-passage text-[17px] leading-[2]">
+            {result.aligned.length ? (
+              result.aligned.map((word, index) => <CheckedWord key={index} word={word} />)
+            ) : (
+              <em>Nothing typed.</em>
+            )}
+          </p>
+          {result.tips.length ? (
+            <ul className="grid gap-1 text-sm text-[#4B5563]">
+              {result.tips.map((tip) => (
+                <li key={tip}>{tip}</li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="text-sm text-[#4B5563]">
+            {signedIn ? saveNote || "Saving this attempt." : "Sign in to keep this result."}{" "}
+            {signedIn ? (
+              <Link href="/progress" className="font-semibold text-[#C2410C]">
+                Progress
+              </Link>
+            ) : null}
+          </p>
+        </section>
+        <div className="flex flex-wrap gap-3">
+          <button type="button" onClick={onRetry} className="rounded-[10px] bg-[#C2410C] px-[22px] py-3.5 font-semibold text-white">
+            Retry this passage
+          </button>
+          <button
+            type="button"
+            onClick={onAnother}
+            className="rounded-[10px] border border-[#D1D5DB] bg-white px-[22px] py-3.5 font-semibold text-[#111827]"
+          >
+            Try another exam
+          </button>
+          <Link
+            href="/steno"
+            className="rounded-[10px] border border-[#D1D5DB] bg-white px-[22px] py-3.5 font-semibold text-[#111827]"
+          >
+            Go to steno practice
+          </Link>
+        </div>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
-        <ScoreStat
-          label="Gross speed"
-          value={result.gross.toFixed(1)}
-          note={`${result.chars} characters with spaces ÷ 5 ÷ ${result.minutes.toFixed(1)} min · ${result.keystrokes} keys pressed`}
-        />
-        <ScoreStat label="Net speed" value={result.net.toFixed(1)} note="wpm after mistakes" />
-        <ScoreStat
-          label="Accuracy"
-          value={`${result.accuracy.toFixed(1)}%`}
-          note={`${result.counts.ok} of ${result.typedCount} words exact`}
-        />
-        <ScoreStat label="Total mistakes" value={mistakeLabel} note={`allowed ${allowed} (3%)`} />
-        <ScoreStat
-          label="Full mistakes"
-          value={String(result.fullMistakes)}
-          note={`${result.counts.sub} wrong · ${result.counts.missed} missed · ${result.counts.extra} extra`}
-        />
-        <ScoreStat
-          label="Half mistakes"
-          value={String(result.counts.half)}
-          note="capital / punctuation only"
-        />
-      </div>
-      <ul className="grid gap-1 rounded-lg border border-[#d5dee6] bg-[#ffffff] px-4 py-3 text-sm">
-        {result.tips.map((tip) => (
-          <li key={tip}>• {tip}</li>
-        ))}
-      </ul>
-      <h2 className="font-medium">Word-by-word check</h2>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#52606d]">
-        <span>
-          <span className="rounded bg-[#fbe4e2] px-0.5 text-[#9b2c2c]">wrong</span> typed vs correct
-        </span>
-        <span>
-          <span className="rounded bg-[#f4ead2] px-0.5 text-[#8a5a00]">half</span> case/punctuation
-        </span>
-        <span>
-          <span className="rounded bg-[#fbe4e2] px-0.5 text-[#9b2c2c] line-through opacity-85">
-            missed
-          </span>{" "}
-          omitted
-        </span>
-        <span>
-          <span className="rounded bg-[#f4ead2] px-0.5 text-[#8a5a00] underline decoration-wavy">
-            extra
-          </span>{" "}
-          added
-        </span>
-      </div>
-      <div className="max-h-96 overflow-y-auto rounded-lg border border-[#d5dee6] bg-[#ffffff] px-5 py-4 font-serif text-[1.05rem] leading-8">
-        {result.aligned.length ? (
-          result.aligned.map((word, index) => <CheckedWord key={index} word={word} />)
-        ) : (
-          <em>Nothing typed.</em>
-        )}
-      </div>
-    </section>
+    </div>
   );
 }
 
-function ScoreStat({ label, value, note }: { label: string; value: string; note: string }) {
+function ScoreTile({
+  label,
+  value,
+  unit,
+  tone,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  tone?: "bad" | "warn";
+}) {
+  const color = tone === "bad" ? "text-[#B91C1C]" : tone === "warn" ? "text-[#B45309]" : "";
   return (
-    <div className="rounded-lg border border-[#d5dee6] bg-[#ffffff] px-4 py-3">
-      <span className="text-xs font-semibold tracking-wider text-[#52606d] uppercase">{label}</span>
-      <b className="block font-mono text-xl font-medium tabular-nums">{value}</b>
-      <small className="text-[#52606d]">{note}</small>
+    <div className="flex flex-col gap-1.5 rounded-[14px] border border-[#E3E6EB] bg-white p-5">
+      <span className="text-sm text-[#4B5563]">{label}</span>
+      <span className={`font-display text-[40px] leading-none font-bold ${color}`}>
+        {value}
+        {unit ? <span className="text-lg font-medium text-[#4B5563]">{unit === "%" ? "%" : ` ${unit}`}</span> : null}
+      </span>
     </div>
   );
 }
@@ -600,35 +763,33 @@ function CheckedWord({ word }: { word: AlignedWord }) {
   if (word.kind === "half") {
     return (
       <>
-        <span className="rounded bg-[#f4ead2] px-0.5 text-[#8a5a00]" title={`Should be: ${word.expected}`}>
+        <span className="bg-[#FEF3C7] px-1" title={`Should be: ${word.expected}`}>
           {word.typed}
         </span>{" "}
+        <span className="font-semibold text-[#166534]">{word.expected}</span>{" "}
       </>
     );
   }
   if (word.kind === "sub") {
     return (
       <>
-        <span className="rounded bg-[#fbe4e2] px-0.5 text-[#9b2c2c]" title={`Should be: ${word.expected}`}>
-          {word.typed} <s className="opacity-70">{word.expected}</s>
+        <span className="text-[#B91C1C] line-through" title="Wrong word">
+          {word.typed}
         </span>{" "}
+        <span className="font-semibold text-[#166534]">{word.expected}</span>{" "}
       </>
     );
   }
   if (word.kind === "missed") {
     return (
-      <>
-        <span className="rounded bg-[#fbe4e2] px-0.5 text-[#9b2c2c] line-through opacity-85" title="Missed word">
-          {word.expected}
-        </span>{" "}
-      </>
+      <span className="text-[#B91C1C] line-through" title="Missed word">
+        {word.expected}{" "}
+      </span>
     );
   }
   return (
-    <>
-      <span className="rounded bg-[#f4ead2] px-0.5 text-[#8a5a00] underline decoration-wavy" title="Extra word">
-        {word.typed}
-      </span>{" "}
-    </>
+    <span className="bg-[#FEF3C7] px-1 underline" title="Extra word">
+      {word.typed}{" "}
+    </span>
   );
 }

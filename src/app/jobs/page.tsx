@@ -15,16 +15,16 @@ export default function JobsPage() {
   return (
     <PageFrame title={page.title} summary={tab.summary}>
       <JsonLd data={pageJsonLd(page)} />
-      <p className="mb-6 text-sm leading-6 text-[#52606d]">
+      <p className="mb-6 text-sm leading-6 text-[#4B5563]">
         Names for these exams are in the{" "}
         <Link
           href="/#job-directory"
-          className="font-medium text-[#1d4e89] underline underline-offset-4"
+          className="font-medium text-[#C2410C] underline underline-offset-4"
         >
           government job directory
         </Link>
         . Sample questions are on the{" "}
-        <Link href="/practice" className="font-medium text-[#1d4e89] underline underline-offset-4">
+        <Link href="/steno" className="font-medium text-[#C2410C] underline underline-offset-4">
           practice page
         </Link>
         .
@@ -33,25 +33,25 @@ export default function JobsPage() {
         {jobs.map((job) => (
           <li
             key={job.title}
-            className="rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-4 sm:px-5"
+            className="rounded-2xl border border-[#E3E6EB] bg-white p-6"
           >
-            <p className="text-sm text-[#52606d]">{job.org}</p>
-            <h2 className="mt-1 text-lg font-semibold tracking-tight">{job.title}</h2>
+            <p className="text-sm text-[#4B5563]">{job.org}</p>
+            <h2 className="mt-1 font-display text-xl font-semibold">{job.title}</h2>
             <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
               <div>
-                <dt className="text-xs tracking-wide text-[#5c6b78] uppercase">Place</dt>
+                <dt className="text-xs tracking-wide text-[#4B5563] uppercase">Place</dt>
                 <dd className="mt-1">{job.place}</dd>
               </div>
               <div>
-                <dt className="text-xs tracking-wide text-[#5c6b78] uppercase">Qualification</dt>
+                <dt className="text-xs tracking-wide text-[#4B5563] uppercase">Qualification</dt>
                 <dd className="mt-1">{job.qualification}</dd>
               </div>
               <div>
-                <dt className="text-xs tracking-wide text-[#5c6b78] uppercase">Vacancies</dt>
+                <dt className="text-xs tracking-wide text-[#4B5563] uppercase">Vacancies</dt>
                 <dd className="mt-1">{job.vacancies}</dd>
               </div>
               <div>
-                <dt className="text-xs tracking-wide text-[#5c6b78] uppercase">Last date</dt>
+                <dt className="text-xs tracking-wide text-[#4B5563] uppercase">Last date</dt>
                 <dd className="mt-1 font-medium">{job.lastDate}</dd>
               </div>
             </dl>

@@ -3,7 +3,7 @@ import { AccountMenu } from "@/components/site-header";
 import { readCurrentUser } from "@/lib/auth";
 
 function AccountPlaceholder() {
-  return <span aria-hidden className="inline-block h-9 w-9 rounded-full border border-[#d5dee6] bg-[#ffffff]" />;
+  return <span aria-hidden className="inline-block h-9 w-9 rounded-full border border-[#E3E6EB] bg-[#ffffff]" />;
 }
 
 async function ResolvedAccount() {

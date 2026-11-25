@@ -60,6 +60,10 @@ export async function pdfPagesToImages(file: File) {
   return pages.map((page) => page.blob);
 }
 
+const A4_WIDTH = 595.28;
+const A4_HEIGHT = 841.89;
+const PAGE_MARGIN = 36;
+
 export async function mergeDocuments(files: File[]) {
   if (files.length < 2) {
     throw new Error("Add at least two files.");
@@ -67,34 +71,85 @@ export async function mergeDocuments(files: File[]) {
   const document = await PDFDocument.create();
 
   for (const file of files) {
-    const isPdf =
-      file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
     if (isPdf) {
-      const source = await PDFDocument.load(await file.arrayBuffer());
-      const copied = await document.copyPages(source, source.getPageIndices());
-      copied.forEach((page) => document.addPage(page));
-      continue;
+      await addPdf(document, file);
+    } else {
+      await addImagePage(document, file);
     }
-
-    const image = await embedImage(document, file);
-    const page = document.addPage([image.width, image.height]);
-    page.drawImage(image, {
-      x: 0,
-      y: 0,
-      width: image.width,
-      height: image.height,
-    });
   }
 
+  if (document.getPageCount() < 1) {
+    throw new Error("Those files did not contain any pages.");
+  }
   return pdfBlob(await document.save());
 }
 
-async function embedImage(document: PDFDocument, file: File) {
-  if (file.type === "image/png") {
-    return document.embedPng(await file.arrayBuffer());
+async function addPdf(document: PDFDocument, file: File) {
+  const bytes = await file.arrayBuffer();
+  try {
+    const source = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    const indices = source.getPageIndices();
+    if (indices.length === 0) {
+      throw new Error("That PDF has no pages.");
+    }
+    const copied = await document.copyPages(source, indices);
+    copied.forEach((page) => document.addPage(page));
+    return;
+  } catch (error) {
+    try {
+      const pages = await renderPage(file, 1.5, 0.86);
+      if (pages.length === 0) {
+        throw error;
+      }
+      for (const page of pages) {
+        const image = await document.embedJpg(new Uint8Array(await page.blob.arrayBuffer()));
+        const pdfPage = document.addPage([page.width, page.height]);
+        pdfPage.drawImage(image, { x: 0, y: 0, width: page.width, height: page.height });
+      }
+    } catch {
+      const reason = error instanceof Error ? error.message : "Could not read that PDF.";
+      throw new Error(`Could not add ${file.name}. ${reason}`);
+    }
   }
-  if (file.type === "image/jpeg") {
-    return document.embedJpg(await file.arrayBuffer());
+}
+
+async function addImagePage(document: PDFDocument, file: File) {
+  let image;
+  try {
+    image = await embedImage(document, file);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "Could not read that image.";
+    throw new Error(`Could not add ${file.name}. ${reason}`);
+  }
+  const page = document.addPage([A4_WIDTH, A4_HEIGHT]);
+  const maxWidth = A4_WIDTH - PAGE_MARGIN * 2;
+  const maxHeight = A4_HEIGHT - PAGE_MARGIN * 2;
+  const naturalWidth = (image.width / 144) * 72;
+  const naturalHeight = (image.height / 144) * 72;
+  const scale = Math.min(maxWidth / naturalWidth, maxHeight / naturalHeight, 1);
+  const width = naturalWidth * scale;
+  const height = naturalHeight * scale;
+  page.drawImage(image, {
+    x: (A4_WIDTH - width) / 2,
+    y: (A4_HEIGHT - height) / 2,
+    width,
+    height,
+  });
+}
+
+async function embedImage(document: PDFDocument, file: File) {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const name = file.name.toLowerCase();
+  try {
+    if (file.type === "image/png" || name.endsWith(".png")) {
+      return await document.embedPng(bytes);
+    }
+    if (file.type === "image/jpeg" || file.type === "image/jpg" || /\.jpe?g$/i.test(name)) {
+      return await document.embedJpg(bytes);
+    }
+  } catch {
+    // Scanned JPEGs are often CMYK, which this PDF library cannot embed directly.
   }
   const image = await loadImage(file);
   const canvas = window.document.createElement("canvas");

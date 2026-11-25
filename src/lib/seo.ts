@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { tools } from "@/lib/content";
 import { merchant } from "@/lib/merchant";
-import { asOf, getSiteUrl, pageUrl, siteName, siteTagline } from "@/lib/site";
+import { getSiteUrl, pageUrl, siteName, siteTagline } from "@/lib/site";
 
-/** Legal pages state this as their last update. */
-const policiesUpdated = "2026-11-21";
+/** Date of the public page set published in the sitemap. */
+const sitemapUpdated = "2026-11-25";
 
 const shareImage = {
   url: "/opengraph-image",
@@ -35,22 +35,21 @@ export type PublicPage = {
 export const publicPages: PublicPage[] = [
   {
     path: "/",
-    title: siteTagline,
+    title: "Practice typing and steno the way the exam tests you",
     description:
-      "SSC, UPSC, railway, bank, and state exam names in one list, plus photo and PDF tools for application forms. Dates shown are examples.",
+      "Pick a tool to begin. Typing tests follow each exam body's pattern, and steno dictations play at the speed you choose.",
     keywords: [
-      "government job notices",
-      "government jobs India",
-      "SSC",
-      "UPSC",
-      "railway recruitment",
-      "bank exams",
-      "state PSC",
+      "typing test",
+      "steno practice",
+      "SSC typing test",
+      "government exam typing",
+      "shorthand dictation",
+      "typing speed accuracy",
     ],
     crumb: siteName,
     changeFrequency: "monthly",
     priority: 1,
-    lastModified: asOf,
+    lastModified: sitemapUpdated,
   },
   {
     path: "/tools",
@@ -69,10 +68,10 @@ export const publicPages: PublicPage[] = [
     parent: "/",
     changeFrequency: "monthly",
     priority: 0.8,
-    lastModified: asOf,
+    lastModified: sitemapUpdated,
   },
   {
-    path: "/tools/typing",
+    path: "/typing",
     title: "Delhi High Court typing test",
     description:
       "Practise the Delhi High Court SPA and PA English typing test on judgment-style passages, with exam timing and mistake counting.",
@@ -82,30 +81,29 @@ export const publicPages: PublicPage[] = [
       "PA typing test",
       "English typing practice",
     ],
-    crumb: "Typing test",
-    parent: "/tools",
+    crumb: "Typing",
+    parent: "/",
     changeFrequency: "monthly",
     priority: 0.8,
-    lastModified: asOf,
+    lastModified: sitemapUpdated,
   },
   {
-    path: "/practice",
-    title: "Government exam practice questions",
+    path: "/steno",
+    title: "Steno dictation",
     description:
-      "A sample constitution question, plus practice sets for SSC CGL, UPSC CSE Prelims, RRB NTPC, IBPS PO, state PSC, and CTET.",
+      "Pick a speed, listen to a dictation, take it down in shorthand, then type your transcription and compare it with the original.",
     keywords: [
-      "government exam practice",
-      "SSC CGL practice",
-      "UPSC CSE prelims",
-      "RRB NTPC practice",
-      "IBPS PO practice",
-      "CTET practice",
+      "steno practice",
+      "shorthand dictation",
+      "stenography test",
+      "dictation 80 wpm",
+      "dictation 100 wpm",
     ],
-    crumb: "Practice",
+    crumb: "Steno",
     parent: "/",
     changeFrequency: "monthly",
     priority: 0.7,
-    lastModified: asOf,
+    lastModified: sitemapUpdated,
   },
   {
     path: "/jobs",
@@ -123,7 +121,7 @@ export const publicPages: PublicPage[] = [
     parent: "/",
     changeFrequency: "monthly",
     priority: 0.8,
-    lastModified: asOf,
+    lastModified: sitemapUpdated,
   },
   {
     path: "/notifications",
@@ -135,7 +133,7 @@ export const publicPages: PublicPage[] = [
     parent: "/",
     changeFrequency: "monthly",
     priority: 0.6,
-    lastModified: asOf,
+    lastModified: sitemapUpdated,
   },
   {
     path: "/about",
@@ -148,20 +146,20 @@ export const publicPages: PublicPage[] = [
     schemaType: "AboutPage",
     changeFrequency: "yearly",
     priority: 0.5,
-    lastModified: policiesUpdated,
+    lastModified: sitemapUpdated,
   },
   {
     path: "/contact",
     title: "Contact PaperNikalo",
     description:
-      "Email, postal address in Adra, West Bengal, and support hours for payments, refunds, and other questions about PaperNikalo.",
-    keywords: ["contact PaperNikalo", "PaperNikalo support", "Adra West Bengal"],
+      "Email, postal address in New Delhi, and support hours for payments, refunds, and other questions about PaperNikalo.",
+    keywords: ["contact PaperNikalo", "PaperNikalo support", "New Delhi"],
     crumb: "Contact",
     parent: "/",
     schemaType: "ContactPage",
     changeFrequency: "yearly",
     priority: 0.5,
-    lastModified: policiesUpdated,
+    lastModified: sitemapUpdated,
   },
   {
     path: "/terms",
@@ -173,7 +171,7 @@ export const publicPages: PublicPage[] = [
     parent: "/",
     changeFrequency: "yearly",
     priority: 0.3,
-    lastModified: policiesUpdated,
+    lastModified: sitemapUpdated,
   },
   {
     path: "/privacy",
@@ -185,7 +183,7 @@ export const publicPages: PublicPage[] = [
     parent: "/",
     changeFrequency: "yearly",
     priority: 0.3,
-    lastModified: policiesUpdated,
+    lastModified: sitemapUpdated,
   },
   {
     path: "/refunds",
@@ -197,19 +195,7 @@ export const publicPages: PublicPage[] = [
     parent: "/",
     changeFrequency: "yearly",
     priority: 0.3,
-    lastModified: policiesUpdated,
-  },
-  {
-    path: "/shipping",
-    title: "Shipping and delivery",
-    description:
-      "PaperNikalo does not ship physical goods. The form document tools open in the browser after a captured payment.",
-    keywords: ["PaperNikalo shipping", "digital delivery"],
-    crumb: "Shipping",
-    parent: "/",
-    changeFrequency: "yearly",
-    priority: 0.3,
-    lastModified: policiesUpdated,
+    lastModified: sitemapUpdated,
   },
 ];
 
@@ -430,7 +416,6 @@ export function pageJsonLd(page: PublicPage) {
         position: index + 1,
         name: tool.name,
         description: tool.detail,
-        ...(tool.href ? { url: pageUrl(tool.href) } : {}),
       })),
     });
   }

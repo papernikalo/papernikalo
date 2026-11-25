@@ -8,14 +8,14 @@ export function PageFrame({
   children: React.ReactNode;
 }) {
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-      <header className="mx-auto max-w-3xl border-b border-[#d5dee6] pb-6 text-center">
-        <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+    <main className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-6 py-14 pb-[72px] text-[#111827]">
+      <header className="flex max-w-[760px] flex-col gap-3">
+        <h1 className="font-display text-4xl leading-[1.1] font-bold tracking-tight sm:text-5xl">
           {title}
         </h1>
-        <p className="mt-3 text-base leading-7 text-[#52606d] sm:text-lg">{summary}</p>
+        <p className="text-lg leading-[1.6] text-[#4B5563]">{summary}</p>
       </header>
-      <div className="mt-8">{children}</div>
+      <div>{children}</div>
     </main>
   );
 }

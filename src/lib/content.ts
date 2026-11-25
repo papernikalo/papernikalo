@@ -26,12 +26,6 @@ export const tools = [
     name: "Page to image",
     detail: "Turn a scanned page into a JPG when a portal will not accept a PDF.",
   },
-  {
-    name: "Typing test",
-    detail:
-      "Practise the Delhi High Court SPA / PA typing test with timed passages and mistake counting.",
-    href: "/tools/typing",
-  },
 ];
 
 export const practiceSets = [

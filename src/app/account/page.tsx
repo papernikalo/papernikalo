@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AccountPanel } from "@/components/account-panel";
-import { LegalPage } from "@/components/legal-page";
+import { PageFrame } from "@/components/page-frame";
 import { privatePageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = privatePageMetadata({
@@ -11,8 +11,8 @@ export const metadata: Metadata = privatePageMetadata({
 
 export default function AccountPage() {
   return (
-    <LegalPage title="Account" description="The name, profile picture, and contact details saved with your sign-in.">
+    <PageFrame title="Account" summary="Your name, picture, and the contact details saved with this sign-in.">
       <AccountPanel />
-    </LegalPage>
+    </PageFrame>
   );
 }

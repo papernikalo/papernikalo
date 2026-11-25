@@ -1,4 +1,5 @@
 import { readAccessUserId } from "@/lib/auth";
+import { grantPaidService } from "@/lib/entitlements";
 import { recordPayment } from "@/lib/payments";
 import { PaymentError, verifyCheckoutPayment } from "@/lib/razorpay";
 import { getSiteUrl } from "@/lib/site";
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
       checkoutOrderId,
       signature,
     });
+    let access: { service: string; expiresAt: string } | null = null;
     try {
       const userId = await readAccessUserId();
       if (userId) {
@@ -57,6 +59,7 @@ export async function POST(request: Request) {
           amount: payment.amount,
           productId: payment.productId,
         });
+        access = await grantPaidService(userId, payment.productId, payment.paymentId);
       }
     } catch (error) {
       console.error(error);
@@ -65,6 +68,7 @@ export async function POST(request: Request) {
       paymentId: payment.paymentId,
       orderId: payment.orderId,
       amount: payment.amount,
+      access,
     });
   } catch (error) {
     if (error instanceof PaymentError) {

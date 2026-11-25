@@ -1,111 +1,166 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
-import { governmentJobNames, governmentJobs } from "@/lib/content";
-import { tabs } from "@/lib/nav";
 import { pageJsonLd, pageMetadata, publicPage } from "@/lib/seo";
-import { siteTagline } from "@/lib/site";
 
 const page = publicPage("/");
 
 export const metadata: Metadata = pageMetadata(page);
 
+const exams = ["SSC", "Delhi High Court", "AIIMS", "DSSSB", "+ more"];
+const speeds = ["60 wpm", "80 wpm", "100 wpm", "120 wpm", "English · Hindi"];
+
+const steps = [
+  {
+    number: "01",
+    title: "Pick your exam or speed",
+    body: "The test copies that exam's language, time and checking rules.",
+  },
+  {
+    number: "02",
+    title: "Practise in exam conditions",
+    body: "Live timer, no copy-paste, backspace on or off like the real test.",
+  },
+  {
+    number: "03",
+    title: "See every mistake",
+    body: "Speed, accuracy, full and half mistakes, word by word.",
+  },
+];
+
+function KeyboardIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="30"
+      height="30"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#C2410C"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10" />
+    </svg>
+  );
+}
+
+function HeadsetIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="30"
+      height="30"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="#C2410C"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 14v-2a9 9 0 0 1 18 0v2" />
+      <rect x="3" y="14" width="4" height="7" rx="1.5" />
+      <rect x="17" y="14" width="4" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
 export default function Home() {
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
+    <main className="flex-1 bg-[#F6F7F9] text-[#111827]">
       <JsonLd data={pageJsonLd(page)} />
-      <section className="mx-auto max-w-3xl text-center">
-        <div>
-          <p className="text-sm font-medium text-[#1d4e89]">Central and state exams</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-balance sm:text-5xl sm:leading-[1.08]">
-            {siteTagline}
+      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-12 px-6 py-14 pb-[72px]">
+        <section className="flex max-w-[760px] flex-col gap-3.5">
+          <p className="text-[13px] font-semibold tracking-[0.08em] text-[#C2410C] uppercase">
+            For government exam aspirants
+          </p>
+          <h1 className="font-display text-4xl leading-[1.1] font-bold tracking-tight sm:text-5xl">
+            Practice typing and steno the way the exam tests you
           </h1>
-          <p className="mt-4 text-base leading-7 text-[#52606d] sm:text-lg">
-            SSC, UPSC, railways, banks, and state exams in one list. An underlined
-            name opens that board&apos;s own site. Dates and vacancy numbers here
-            are examples, so check the notice before you apply. Photo and PDF tools run in
-            your browser.
+          <p className="text-lg leading-[1.6] text-[#4B5563]">
+            Pick a tool to begin. Typing tests follow each exam body&apos;s pattern, and
+            steno dictations play at the speed you choose.
           </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <a
-              href="#job-directory"
-              className="rounded-full bg-[#1c2834] px-4 py-2.5 text-sm font-medium text-[#f3f5f7]"
-            >
-              Browse job names
-            </a>
-            <Link
-              href="/tools"
-              className="rounded-full border border-[#1c2834] bg-[#ffffff] px-4 py-2.5 text-sm font-medium"
-            >
-              Prepare a form
-            </Link>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <ul className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {tabs.map((tab) => (
-          <li key={tab.href}>
-            <Link
-              href={tab.href}
-              className="flex h-full flex-col rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-4 transition-colors hover:border-[#8aa4bc]"
-            >
-              <p className="font-medium">{tab.label}</p>
-              <p className="mt-2 flex-1 text-sm leading-6 text-[#52606d]">{tab.summary}</p>
-              <p className="mt-4 text-sm font-medium text-[#1d4e89]">Open {tab.label.toLowerCase()}</p>
-            </Link>
-          </li>
-        ))}
-      </ul>
-
-      <section aria-labelledby="government-jobs" id="job-directory" className="scroll-mt-24 pt-14">
-        <div className="mx-auto max-w-2xl text-center">
-          <h2 id="government-jobs" className="text-2xl font-semibold tracking-tight">
-            Government jobs
-          </h2>
-          <p className="mt-2 text-[#52606d]">
-            {governmentJobNames.length} exam names. Underlined ones open the
-            official site.
-          </p>
-        </div>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {governmentJobs.map((group) => {
-            const headingId = group.group.toLowerCase().replaceAll(" ", "-");
-            return (
-              <section
-                key={group.group}
-                aria-labelledby={headingId}
-                className="rounded-2xl border border-[#d5dee6] bg-[#ffffff] p-5"
-              >
-                <h3
-                  id={headingId}
-                  className="border-b border-[#e6edf2] pb-3 text-sm font-semibold text-[#1d4e89]"
+        <section className="grid gap-6 md:grid-cols-2">
+          <article className="flex flex-col gap-5 rounded-2xl border border-[#E3E6EB] bg-white p-8">
+            <div className="grid h-14 w-14 place-items-center rounded-xl bg-[#FFF7F2]">
+              <KeyboardIcon />
+            </div>
+            <div className="flex flex-col gap-2">
+              <h2 className="font-display text-[28px] font-semibold">Typing Test</h2>
+              <p className="text-base leading-[1.6] text-[#4B5563]">
+                Choose your exam body, set language and duration, and type a passage
+                under real exam rules. Get WPM, accuracy and every mistake marked.
+              </p>
+            </div>
+            <ul className="flex flex-wrap gap-2">
+              {exams.map((exam) => (
+                <li
+                  key={exam}
+                  className="rounded-full bg-[#F3F4F6] px-3 py-1.5 text-[13px] font-medium text-[#374151]"
                 >
-                  {group.group}
-                </h3>
-                <ul className="mt-3 columns-1 gap-x-6 sm:columns-2">
-                  {group.jobs.map((job) => (
-                    <li key={job.name} className="break-inside-avoid py-1 text-sm leading-6">
-                      {job.href ? (
-                        <a
-                          href={job.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline decoration-[#d5dee6] underline-offset-4 hover:decoration-[#1d4e89]"
-                        >
-                          {job.name}
-                        </a>
-                      ) : (
-                        <span className="text-[#5c6b78]">{job.name}</span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-        </div>
-      </section>
+                  {exam}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/typing"
+              className="mt-auto self-start rounded-[10px] bg-[#C2410C] px-[22px] py-3.5 text-base font-semibold text-white hover:bg-[#9A3412]"
+            >
+              Start typing test →
+            </Link>
+          </article>
+
+          <article className="flex flex-col gap-5 rounded-2xl border border-[#E3E6EB] bg-white p-8">
+            <div className="grid h-14 w-14 place-items-center rounded-xl bg-[#FFF7F2]">
+              <HeadsetIcon />
+            </div>
+            <div className="flex flex-col gap-2">
+              <h2 className="font-display text-[28px] font-semibold">Steno Practice</h2>
+              <p className="text-base leading-[1.6] text-[#4B5563]">
+                Listen to dictation at your chosen speed, take it down in shorthand,
+                then type your transcription and compare it with the original.
+              </p>
+            </div>
+            <ul className="flex flex-wrap gap-2">
+              {speeds.map((speed) => (
+                <li
+                  key={speed}
+                  className="rounded-full bg-[#F3F4F6] px-3 py-1.5 text-[13px] font-medium text-[#374151]"
+                >
+                  {speed}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/steno"
+              className="mt-auto self-start rounded-[10px] bg-[#C2410C] px-[22px] py-3.5 text-base font-semibold text-white hover:bg-[#9A3412]"
+            >
+              Start steno practice →
+            </Link>
+          </article>
+        </section>
+
+        <section className="flex flex-col gap-5">
+          <h2 className="font-display text-2xl font-semibold">How it works</h2>
+          <ol className="grid gap-4 sm:grid-cols-3">
+            {steps.map((step) => (
+              <li
+                key={step.number}
+                className="flex flex-col gap-1.5 rounded-xl border border-[#E3E6EB] bg-white p-5"
+              >
+                <span className="font-display text-sm font-bold text-[#C2410C]">{step.number}</span>
+                <h3 className="text-[17px] font-semibold">{step.title}</h3>
+                <p className="text-[15px] leading-[1.55] text-[#4B5563]">{step.body}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
     </main>
   );
 }

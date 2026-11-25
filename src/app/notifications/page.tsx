@@ -15,9 +15,9 @@ export default function NotificationsPage() {
   return (
     <PageFrame title={page.title} summary={tab.summary}>
       <JsonLd data={pageJsonLd(page)} />
-      <p className="mb-6 text-sm leading-6 text-[#52606d]">
+      <p className="mb-6 text-sm leading-6 text-[#4B5563]">
         The same exams are listed as{" "}
-        <Link href="/jobs" className="font-medium text-[#1d4e89] underline underline-offset-4">
+        <Link href="/jobs" className="font-medium text-[#C2410C] underline underline-offset-4">
           sample job notices
         </Link>
         .
@@ -26,16 +26,16 @@ export default function NotificationsPage() {
         {notifications.map((item) => (
           <li
             key={item.title}
-            className="rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-4 sm:px-5"
+            className="rounded-xl border border-[#E3E6EB] bg-white p-5"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="rounded-full bg-[#f3f5f7] px-2.5 py-1 text-xs font-medium text-[#1d4e89]">
+              <p className="rounded-full bg-[#F6F7F9] px-2.5 py-1 text-xs font-medium text-[#C2410C]">
                 {item.kind}
               </p>
-              <time className="text-sm text-[#5c6b78]">{item.date}</time>
+              <time className="text-sm text-[#4B5563]">{item.date}</time>
             </div>
-            <h2 className="mt-3 font-semibold tracking-tight">{item.title}</h2>
-            <p className="mt-1 text-sm leading-6 text-[#52606d]">{item.detail}</p>
+            <h2 className="mt-3 font-display text-lg font-semibold">{item.title}</h2>
+            <p className="mt-1 text-sm leading-6 text-[#4B5563]">{item.detail}</p>
           </li>
         ))}
       </ul>

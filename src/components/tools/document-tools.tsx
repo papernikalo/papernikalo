@@ -45,7 +45,6 @@ const toolIcons = {
   "PDF compress": CompressIcon,
   "Merge documents": MergeIcon,
   "Page to image": PageIcon,
-  "Typing test": TypingIcon,
 } as const;
 
 export function DocumentTools({ tools }: { tools: Tool[] }) {
@@ -55,9 +54,6 @@ export function DocumentTools({ tools }: { tools: Tool[] }) {
 
   return (
     <div className="grid gap-6">
-      <p className="rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-3 text-sm leading-6 text-[#52606d]">
-        Photos and PDFs stay on this device. A signed-in typing test is saved on your account.
-      </p>
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {tools.map((tool) => {
           const ToolIcon = toolIcons[tool.name as keyof typeof toolIcons];
@@ -66,7 +62,7 @@ export function DocumentTools({ tools }: { tools: Tool[] }) {
               {tool.href ? (
                 <Link
                   href={tool.href}
-                  className="flex h-full w-full flex-col items-start gap-4 rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-4 text-left transition-colors hover:border-[#8aa4bc]"
+                  className="flex h-full w-full flex-col items-start gap-4 rounded-2xl border border-[#E3E6EB] bg-white p-6 text-left transition-colors hover:border-[#C2410C]"
                 >
                   <ToolCardBody name={tool.name} detail={tool.detail} icon={ToolIcon} />
                 </Link>
@@ -74,7 +70,7 @@ export function DocumentTools({ tools }: { tools: Tool[] }) {
                 <button
                   type="button"
                   onClick={() => setOpenName(tool.name)}
-                  className="flex h-full w-full flex-col items-start gap-4 rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-4 text-left transition-colors hover:border-[#8aa4bc]"
+                  className="flex h-full w-full flex-col items-start gap-4 rounded-2xl border border-[#E3E6EB] bg-white p-6 text-left transition-colors hover:border-[#C2410C]"
                 >
                   <ToolCardBody name={tool.name} detail={tool.detail} icon={ToolIcon} />
                 </button>
@@ -113,12 +109,12 @@ function ToolCardBody({
 }) {
   return (
     <>
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3f5f7] text-[#1d4e89]">
+      <span className="grid h-14 w-14 place-items-center rounded-xl bg-[#FFF7F2] text-[#C2410C]">
         {Icon ? <Icon /> : null}
       </span>
       <span>
-        <span className="block font-medium">{name}</span>
-        <span className="mt-1 block text-sm leading-6 text-[#52606d]">{detail}</span>
+        <span className="block font-display text-xl font-semibold">{name}</span>
+        <span className="mt-1 block text-[15px] leading-[1.55] text-[#4B5563]">{detail}</span>
       </span>
     </>
   );
@@ -152,7 +148,7 @@ function ToolDialog({
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
-      className="m-auto w-[min(40rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-hidden rounded-2xl border border-[#d5dee6] bg-[#ffffff] p-0 text-[#1c2834] shadow-xl backdrop:bg-[#1c2834]/50"
+      className="m-auto w-[min(40rem,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] overflow-hidden rounded-2xl border border-[#E3E6EB] bg-[#ffffff] p-0 text-[#111827] shadow-xl backdrop:bg-[#111827]/50"
       onClose={onClose}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
@@ -161,22 +157,25 @@ function ToolDialog({
       }}
     >
       <div className="flex max-h-[calc(100dvh-2rem)] flex-col">
-        <div className="flex items-start gap-3 border-b border-[#e6edf2] px-5 py-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f3f5f7] text-[#1d4e89]">
+        <div className="flex items-start gap-3 border-b border-[#E3E6EB] px-5 py-4">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-xl bg-[#FFF7F2] text-[#C2410C]">
             {icon}
           </span>
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className="text-lg font-medium">
+            <h2 id={titleId} className="font-display text-xl font-semibold">
               {title}
             </h2>
-            <p className="mt-1 text-sm leading-6 text-[#52606d]">{detail}</p>
+            <p className="mt-1 text-sm leading-6 text-[#4B5563]">{detail}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-full border border-[#c5d0d8] px-3 py-1.5 text-sm font-medium"
+            aria-label="Close"
+            className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-full text-[#4B5563] hover:bg-[#F3F4F6] hover:text-[#111827]"
           >
-            Close
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
           </button>
         </div>
         <div className="overflow-y-auto px-5 py-5">{children}</div>
@@ -198,14 +197,14 @@ function Field({
 }) {
   return (
     <label className="grid gap-1 text-sm">
-      <span className="text-[#52606d]">{label}</span>
+      <span className="text-[#4B5563]">{label}</span>
       {children}
     </label>
   );
 }
 
 const inputClass =
-  "w-full rounded-xl border border-[#d5dee6] bg-white px-3 py-2.5 text-sm text-[#1c2834]";
+  "w-full rounded-xl border border-[#E3E6EB] bg-white px-3 py-2.5 text-sm text-[#111827]";
 
 function RunButton({
   children,
@@ -220,7 +219,7 @@ function RunButton({
     <button
       type="submit"
       disabled={busy || disabled}
-      className="inline-flex h-10 items-center justify-center rounded-full bg-[#1c2834] px-4 text-sm font-medium text-[#f4f7f9] disabled:opacity-50"
+      className="inline-flex min-h-11 items-center justify-center rounded-[10px] bg-[#C2410C] px-[22px] py-3 text-sm font-semibold text-white hover:bg-[#9A3412] disabled:opacity-50"
     >
       {busy ? "Working…" : children}
     </button>
@@ -228,11 +227,11 @@ function RunButton({
 }
 
 function ResultNote({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm leading-6 text-[#52606d]">{children}</p>;
+  return <p className="text-sm leading-6 text-[#4B5563]">{children}</p>;
 }
 
 function ErrorNote({ children }: { children: React.ReactNode }) {
-  return <p className="text-sm leading-6 text-[#1d4e89]">{children}</p>;
+  return <p className="text-sm leading-6 text-[#C2410C]">{children}</p>;
 }
 
 function DownloadLink({ href, filename, children }: { href: string; filename: string; children: React.ReactNode }) {
@@ -240,7 +239,7 @@ function DownloadLink({ href, filename, children }: { href: string; filename: st
     <a
       href={href}
       download={filename}
-      className="text-sm font-medium text-[#1d4e89] underline underline-offset-4"
+      className="text-sm font-medium text-[#C2410C] underline underline-offset-4"
     >
       {children}
     </a>
@@ -351,7 +350,24 @@ function PhotoResizer() {
           />
         </Field>
       </div>
+      {error ? <ErrorNote>{error}</ErrorNote> : null}
+      {preview ? (
+        <div className="grid gap-2">
+          <img
+            src={preview}
+            alt="Resized form photo"
+            loading="lazy"
+            decoding="async"
+            className="max-h-64 w-auto rounded-md border border-[#E3E6EB] bg-white"
+          />
+          <ResultNote>{savedSize}</ResultNote>
+          <DownloadLink href={preview} filename="form-photo.jpg">
+            Download JPG
+          </DownloadLink>
+        </div>
+      ) : null}
       <form
+        className="flex justify-end"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!file) {
@@ -382,22 +398,6 @@ function PhotoResizer() {
       >
         <RunButton busy={busy}>Resize photo</RunButton>
       </form>
-      {error ? <ErrorNote>{error}</ErrorNote> : null}
-      {preview ? (
-        <div className="grid gap-2">
-          <img
-            src={preview}
-            alt="Resized form photo"
-            loading="lazy"
-            decoding="async"
-            className="max-h-64 w-auto rounded-md border border-[#d5dee6] bg-white"
-          />
-          <ResultNote>{savedSize}</ResultNote>
-          <DownloadLink href={preview} filename="form-photo.jpg">
-            Download JPG
-          </DownloadLink>
-        </div>
-      ) : null}
     </ToolFields>
   );
 }
@@ -469,7 +469,23 @@ function SignatureCrop() {
           />
         </Field>
       </div>
+      {error ? <ErrorNote>{error}</ErrorNote> : null}
+      {preview ? (
+        <div className="grid gap-2">
+          <img
+            src={preview}
+            alt="Cropped signature"
+            loading="lazy"
+            decoding="async"
+            className="max-w-full rounded-md border border-[#E3E6EB] bg-white"
+          />
+          <DownloadLink href={preview} filename="signature.png">
+            Download PNG
+          </DownloadLink>
+        </div>
+      ) : null}
       <form
+        className="flex justify-end"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!file) {
@@ -490,21 +506,6 @@ function SignatureCrop() {
       >
         <RunButton busy={busy}>Crop signature</RunButton>
       </form>
-      {error ? <ErrorNote>{error}</ErrorNote> : null}
-      {preview ? (
-        <div className="grid gap-2">
-          <img
-            src={preview}
-            alt="Cropped signature"
-            loading="lazy"
-            decoding="async"
-            className="max-w-full rounded-md border border-[#d5dee6] bg-white"
-          />
-          <DownloadLink href={preview} filename="signature.png">
-            Download PNG
-          </DownloadLink>
-        </div>
-      ) : null}
     </ToolFields>
   );
 }
@@ -521,7 +522,7 @@ function PlainBackground() {
 
   return (
     <ToolFields>
-      <p className="text-sm leading-6 text-[#52606d]">
+      <p className="text-sm leading-6 text-[#4B5563]">
         Works when the backdrop is a fairly even colour and touches the edges of the photo.
       </p>
       <Field label="Photo">
@@ -555,7 +556,23 @@ function PlainBackground() {
           />
         </Field>
       </div>
+      {error ? <ErrorNote>{error}</ErrorNote> : null}
+      {preview ? (
+        <div className="grid gap-2">
+          <img
+            src={preview}
+            alt="Photo with a plain background"
+            loading="lazy"
+            decoding="async"
+            className="max-h-72 w-auto rounded-md border border-[#E3E6EB] bg-white"
+          />
+          <DownloadLink href={preview} filename="plain-background.jpg">
+            Download JPG
+          </DownloadLink>
+        </div>
+      ) : null}
       <form
+        className="flex justify-end"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!file) {
@@ -576,21 +593,6 @@ function PlainBackground() {
       >
         <RunButton busy={busy}>Replace background</RunButton>
       </form>
-      {error ? <ErrorNote>{error}</ErrorNote> : null}
-      {preview ? (
-        <div className="grid gap-2">
-          <img
-            src={preview}
-            alt="Photo with a plain background"
-            loading="lazy"
-            decoding="async"
-            className="max-h-72 w-auto rounded-md border border-[#d5dee6] bg-white"
-          />
-          <DownloadLink href={preview} filename="plain-background.jpg">
-            Download JPG
-          </DownloadLink>
-        </div>
-      ) : null}
     </ToolFields>
   );
 }
@@ -625,7 +627,17 @@ function PdfCompress() {
           onChange={setLevelId}
         />
       </Field>
+      {error ? <ErrorNote>{error}</ErrorNote> : null}
+      {href ? (
+        <div className="grid gap-2">
+          <ResultNote>{note}</ResultNote>
+          <DownloadLink href={href} filename="compressed.pdf">
+            Download PDF
+          </DownloadLink>
+        </div>
+      ) : null}
       <form
+        className="flex justify-end"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!file) {
@@ -649,15 +661,6 @@ function PdfCompress() {
       >
         <RunButton busy={busy}>Compress PDF</RunButton>
       </form>
-      {error ? <ErrorNote>{error}</ErrorNote> : null}
-      {href ? (
-        <div className="grid gap-2">
-          <ResultNote>{note}</ResultNote>
-          <DownloadLink href={href} filename="compressed.pdf">
-            Download PDF
-          </DownloadLink>
-        </div>
-      ) : null}
     </ToolFields>
   );
 }
@@ -669,30 +672,59 @@ function MergeDocuments() {
   const [result, setResult] = useState<Blob | null>(null);
   const href = useObjectUrl(result);
 
+  function moveFile(index: number, direction: -1 | 1) {
+    setFiles((current) => {
+      const next = [...current];
+      const target = index + direction;
+      if (target < 0 || target >= next.length) {
+        return current;
+      }
+      const [item] = next.splice(index, 1);
+      next.splice(target, 0, item);
+      return next;
+    });
+    setResult(null);
+  }
+
+  function removeFile(index: number) {
+    setFiles((current) => current.filter((_, item) => item !== index));
+    setResult(null);
+  }
+
   return (
     <ToolFields>
       <Field label="PDFs or images">
         <input
           className={inputClass}
           type="file"
-          accept="application/pdf,image/jpeg,image/png,image/webp"
+          accept="application/pdf,image/jpeg,image/png,image/webp,.pdf,.jpg,.jpeg,.png,.webp"
           multiple
           onChange={(event) => {
-            setFiles(Array.from(event.target.files ?? []));
+            const picked = Array.from(event.target.files ?? []);
+            event.target.value = "";
+            if (picked.length === 0) return;
+            setFiles((current) => [...current, ...picked]);
             setResult(null);
             setError("");
           }}
         />
       </Field>
+      <p className="text-sm leading-6 text-[#4B5563]">
+        {files.length === 0
+          ? "Add at least two files. Choosing files again adds them to this list."
+          : `${files.length} ${files.length === 1 ? "file" : "files"} in this order. PDFs keep their pages. Images are placed on A4 pages.`}
+      </p>
       {files.length > 0 ? (
         <ol className="grid gap-2">
           {files.map((file, index) => (
-            <li key={`${file.name}-${index}`} className="flex items-center justify-between gap-3 text-sm">
-              <span className="min-w-0 truncate">{file.name}</span>
+            <li key={`${file.name}-${file.size}-${file.lastModified}-${index}`} className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate">
+                {index + 1}. {file.name}
+              </span>
               <span className="flex shrink-0 gap-2">
                 <button
                   type="button"
-                  className="text-[#1d4e89] underline-offset-4 hover:underline disabled:opacity-40"
+                  className="text-[#C2410C] underline-offset-4 hover:underline disabled:opacity-40"
                   disabled={index === 0}
                   onClick={() => moveFile(index, -1)}
                 >
@@ -700,20 +732,38 @@ function MergeDocuments() {
                 </button>
                 <button
                   type="button"
-                  className="text-[#1d4e89] underline-offset-4 hover:underline disabled:opacity-40"
+                  className="text-[#C2410C] underline-offset-4 hover:underline disabled:opacity-40"
                   disabled={index === files.length - 1}
                   onClick={() => moveFile(index, 1)}
                 >
                   Down
+                </button>
+                <button
+                  type="button"
+                  className="text-[#B91C1C] underline-offset-4 hover:underline"
+                  onClick={() => removeFile(index)}
+                >
+                  Remove
                 </button>
               </span>
             </li>
           ))}
         </ol>
       ) : null}
+      {error ? <ErrorNote>{error}</ErrorNote> : null}
+      {href ? (
+        <DownloadLink href={href} filename="merged.pdf">
+          Download PDF
+        </DownloadLink>
+      ) : null}
       <form
+        className="flex justify-end"
         onSubmit={async (event) => {
           event.preventDefault();
+          if (files.length < 2) {
+            setError("Add at least two files.");
+            return;
+          }
           setBusy(true);
           setError("");
           try {
@@ -730,28 +780,8 @@ function MergeDocuments() {
           Merge into one PDF
         </RunButton>
       </form>
-      {error ? <ErrorNote>{error}</ErrorNote> : null}
-      {href ? (
-        <DownloadLink href={href} filename="merged.pdf">
-          Download PDF
-        </DownloadLink>
-      ) : null}
     </ToolFields>
   );
-
-  function moveFile(index: number, direction: -1 | 1) {
-    setFiles((current) => {
-      const next = [...current];
-      const target = index + direction;
-      if (target < 0 || target >= next.length) {
-        return current;
-      }
-      const [item] = next.splice(index, 1);
-      next.splice(target, 0, item);
-      return next;
-    });
-    setResult(null);
-  }
 }
 
 function PageToImage() {
@@ -774,7 +804,16 @@ function PageToImage() {
           }}
         />
       </Field>
+      {error ? <ErrorNote>{error}</ErrorNote> : null}
+      {pages.length > 0 ? (
+        <ul className="grid gap-4 sm:grid-cols-2">
+          {pages.map((page, index) => (
+            <PagePreview key={`${page.size}-${index}`} page={page} index={index} />
+          ))}
+        </ul>
+      ) : null}
       <form
+        className="flex justify-end"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!file) {
@@ -795,14 +834,6 @@ function PageToImage() {
       >
         <RunButton busy={busy}>Make JPG pages</RunButton>
       </form>
-      {error ? <ErrorNote>{error}</ErrorNote> : null}
-      {pages.length > 0 ? (
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {pages.map((page, index) => (
-            <PagePreview key={`${page.size}-${index}`} page={page} index={index} />
-          ))}
-        </ul>
-      ) : null}
     </ToolFields>
   );
 }
@@ -865,15 +896,6 @@ function MergeIcon() {
   );
 }
 
-function TypingIcon() {
-  return (
-    <IconFrame>
-      <rect x="4" y="8" width="24" height="16" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M8 13h2M13 13h2M18 13h2M22 13h2M8 17h2M12 17h8M22 17h2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </IconFrame>
-  );
-}
-
 function PageIcon() {
   return (
     <IconFrame>
@@ -897,7 +919,7 @@ function PagePreview({ page, index }: { page: Blob; index: number }) {
         alt={`Scanned page ${index + 1} converted to a JPG`}
         loading="lazy"
         decoding="async"
-        className="max-h-72 w-full rounded-md border border-[#d5dee6] bg-white object-contain"
+        className="max-h-72 w-full rounded-md border border-[#E3E6EB] bg-white object-contain"
       />
       <DownloadLink href={href} filename={`page-${index + 1}.jpg`}>
         Download page {index + 1}

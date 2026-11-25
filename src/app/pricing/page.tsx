@@ -4,10 +4,10 @@ import { privatePageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = privatePageMetadata({
   path: "/pricing",
-  title: "Subscribe",
-  description: "The form document tools are paid for on the subscribe page.",
+  title: "Services",
+  description: "Typing practice and steno are paid for on the services page.",
 });
 
 export default function PricingPage() {
-  redirect("/subscribe");
+  redirect("/services");
 }

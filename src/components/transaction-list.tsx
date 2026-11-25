@@ -51,7 +51,7 @@ export function TransactionList() {
   }, [ready, user]);
 
   if (!ready || (user && !rows && !error)) {
-    return <p className="text-[#52606d]">Loading transactions…</p>;
+    return <p className="text-[#4B5563]">Loading transactions…</p>;
   }
 
   if (!user) {
@@ -66,18 +66,18 @@ export function TransactionList() {
   }
 
   if (error) {
-    return <p className="text-[#1d4e89]">{error}</p>;
+    return <p className="text-[#C2410C]">{error}</p>;
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-[#d5dee6] bg-[#ffffff]">
+    <div className="overflow-x-auto rounded-lg border border-[#E3E6EB] bg-[#ffffff]">
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr>
             {["Date", "Item", "Amount", "Payment id", "Order id"].map((heading) => (
               <th
                 key={heading}
-                className="border-b border-[#d5dee6] px-3 py-2 text-left text-xs font-semibold tracking-wider whitespace-nowrap text-[#52606d] uppercase"
+                className="border-b border-[#E3E6EB] px-3 py-2 text-left text-xs font-semibold tracking-wider whitespace-nowrap text-[#4B5563] uppercase"
               >
                 {heading}
               </th>
@@ -89,7 +89,7 @@ export function TransactionList() {
             rows.map((row) => (
               <tr
                 key={row.paymentId}
-                className="[&>td]:border-b [&>td]:border-[#d5dee6] [&>td]:px-3 [&>td]:py-2 [&>td]:align-top"
+                className="[&>td]:border-b [&>td]:border-[#E3E6EB] [&>td]:px-3 [&>td]:py-2 [&>td]:align-top"
               >
                 <td className="whitespace-nowrap">{formatWhen(row.createdAt)}</td>
                 <td>{row.name}</td>
@@ -100,10 +100,10 @@ export function TransactionList() {
             ))
           ) : (
             <tr>
-              <td colSpan={5} className="px-3 py-3 text-[#52606d]">
+              <td colSpan={5} className="px-3 py-3 text-[#4B5563]">
                 No payments yet.{" "}
-                <Link href="/subscribe" className="underline underline-offset-4">
-                  Subscribe
+                <Link href="/services" className="underline underline-offset-4">
+                  Choose a service
                 </Link>{" "}
                 when you are ready. The charge is saved here after it is captured.
               </td>

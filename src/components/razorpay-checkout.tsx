@@ -28,6 +28,7 @@ type PaidReceipt = {
   paymentId: string;
   orderId: string;
   amount: number;
+  access?: { service: string; expiresAt: string } | null;
 };
 
 type RazorpayInstance = {
@@ -60,24 +61,32 @@ declare global {
 export function RazorpayCheckout({
   productId,
   businessName,
+  buttonLabel = "Pay",
+  onPaid,
 }: {
   productId: string;
   businessName: string;
+  buttonLabel?: string;
+  onPaid?: () => void;
 }) {
   const router = useRouter();
   const { user, ready: signedIn } = useAuth();
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [receipt, setReceipt] = useState<PaidReceipt | null>(null);
+  const settled = useRef(false);
   const savedEmail = user?.email ?? "";
   const savedMobile = user?.mobile ?? "";
   const savedName = user?.name ?? "";
 
   useEffect(() => {
+    if (window.Razorpay) setReady(true);
+  }, []);
+
+  useEffect(() => {
     if (signedIn && !user) router.replace("/sign-in");
   }, [signedIn, user, router]);
-  const [notice, setNotice] = useState("");
-  const [receipt, setReceipt] = useState<PaidReceipt | null>(null);
-  const settled = useRef(false);
 
   async function pay(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -122,7 +131,7 @@ export function RazorpayCheckout({
         order_id: order.orderId,
         remember_customer: false,
         notes: { product_id: productId },
-        theme: { color: "#1d4e89" },
+        theme: { color: "#C2410C" },
         prefill,
         modal: {
           confirm_close: true,
@@ -168,6 +177,7 @@ export function RazorpayCheckout({
       }
       setReceipt(body);
       setNotice("");
+      onPaid?.();
     } catch {
       setNotice("The payment could not be confirmed.");
     } finally {
@@ -177,48 +187,44 @@ export function RazorpayCheckout({
 
   if (receipt) {
     return (
-      <section className="w-full rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-4 sm:px-5" aria-live="polite">
-        <h2 className="text-lg font-semibold text-[#1c2834]">Payment confirmed</h2>
+      <section className="w-full rounded-2xl border border-[#E3E6EB] bg-[#ffffff] px-4 py-4 sm:px-5" aria-live="polite">
+        <h2 className="text-lg font-semibold text-[#111827]">Payment confirmed</h2>
         <p className="mt-2">
           {formatInr(receipt.amount)} was captured for {businessName}. This receipt was checked on
           the PaperNikalo server.
         </p>
         <dl className="mt-4 grid gap-2 text-sm">
           <div className="grid gap-0.5 sm:grid-cols-[8rem_1fr]">
-            <dt className="text-[#52606d]">Payment id</dt>
+            <dt className="text-[#4B5563]">Payment id</dt>
             <dd className="font-mono">{receipt.paymentId}</dd>
           </div>
           <div className="grid gap-0.5 sm:grid-cols-[8rem_1fr]">
-            <dt className="text-[#52606d]">Order id</dt>
+            <dt className="text-[#4B5563]">Order id</dt>
             <dd className="font-mono">{receipt.orderId}</dd>
           </div>
         </dl>
-        <p className="mt-4">
-          <Link href="/tools" className="underline underline-offset-4">
-            Open the form tools
-          </Link>
-        </p>
+        <p className="mt-4 text-sm text-[#4B5563]">This service is now on your account.</p>
       </section>
     );
   }
 
   return (
-    <form className="grid w-full gap-4 rounded-2xl border border-[#d5dee6] bg-[#ffffff] p-4 sm:p-6" onSubmit={pay}>
+    <form className="grid w-full justify-items-end gap-3" onSubmit={pay}>
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
         strategy="afterInteractive"
         onReady={() => setReady(true)}
         onError={() => setNotice("The payment window could not be loaded.")}
       />
-      {user ? null : <p className="text-sm leading-6 text-[#52606d]">Loading your account…</p>}
+      {user ? null : <p className="text-sm leading-6 text-[#4B5563]">Loading your account…</p>}
       <button
         type="submit"
         disabled={busy || !user}
-        className="w-full rounded-full bg-[#1c2834] px-4 py-2.5 text-sm font-medium text-[#f3f5f7] disabled:cursor-default disabled:opacity-60"
+        className="inline-flex min-h-11 items-center rounded-[10px] bg-[#C2410C] px-[22px] py-3 text-sm font-semibold text-white hover:bg-[#9A3412] disabled:cursor-default disabled:opacity-60"
       >
-        {busy ? "Opening payment…" : "Subscribe"}
+        {busy ? "Opening payment…" : buttonLabel}
       </button>
-      <p className="text-sm leading-6 text-[#52606d]">
+      <p className="text-right text-sm leading-6 text-[#4B5563]">
         By paying you agree to the{" "}
         <Link href="/terms" className="underline underline-offset-4">
           terms
@@ -230,7 +236,7 @@ export function RazorpayCheckout({
         .
       </p>
       {notice ? (
-        <p className="text-sm text-[#1d4e89]" role="status">
+        <p className="text-sm text-[#C2410C]" role="status">
           {notice}
         </p>
       ) : null}

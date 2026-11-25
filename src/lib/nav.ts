@@ -5,9 +5,9 @@ export const tabs = [
     summary: "Get a form photo, signature, and PDF ready before you upload them.",
   },
   {
-    href: "/practice",
-    label: "Practice",
-    summary: "Try a question from the kind of paper these exams set.",
+    href: "/steno",
+    label: "Steno",
+    summary: "Listen to a dictation, take it down in shorthand, then type your transcription.",
   },
   {
     href: "/jobs",

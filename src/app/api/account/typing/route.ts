@@ -6,11 +6,11 @@ import { parseTypingAttempt } from "@/lib/typing-progress";
 export async function GET() {
   try {
     const userId = await readAccessUserId();
-    if (!userId) return authJson({ error: "Sign in to see your typing progress." }, 401);
+    if (!userId) return authJson({ error: "Sign in to see your progress." }, 401);
     const attempts = await listTypingAttempts(userId);
     return authJson({ attempts });
   } catch (error) {
-    return authFailure(error, "Typing progress could not be loaded.");
+    return authFailure(error, "Progress could not be loaded.");
   }
 }
 

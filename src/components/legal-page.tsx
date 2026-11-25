@@ -1,3 +1,4 @@
+import { CopyValue } from "@/components/policy-pages";
 import { merchant, published } from "@/lib/merchant";
 
 export function LegalPage({
@@ -15,23 +16,21 @@ export function LegalPage({
     <main
       className={
         centered
-          ? "mx-auto flex w-full max-w-6xl flex-1 flex-col items-center justify-center px-4 py-10 sm:px-6 lg:px-8"
-          : "mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-8 sm:px-6 lg:px-8 lg:py-12"
+          ? "mx-auto flex w-full max-w-[1200px] flex-1 flex-col items-center justify-center px-6 py-14 pb-[72px] text-[#111827]"
+          : "mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-6 py-14 pb-[72px] text-[#111827]"
       }
     >
-      <header className={centered ? "w-full max-w-md text-center" : "mx-auto max-w-3xl text-center"}>
-        <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
+      <header className={centered ? "flex w-full max-w-md flex-col gap-3 text-center" : "flex max-w-[760px] flex-col gap-3"}>
+        <h1 className="font-display text-4xl leading-[1.1] font-bold tracking-tight sm:text-5xl">
           {title}
         </h1>
-        <p className="mt-3 text-base leading-7 text-[#52606d] sm:text-lg">
-          {description}
-        </p>
+        <p className="text-lg leading-[1.6] text-[#4B5563]">{description}</p>
       </header>
       <div
         className={
           centered
             ? "mt-8 w-full max-w-md"
-            : "mx-auto mt-8 w-full max-w-3xl space-y-4 text-left text-[15px] leading-7 text-[#3d4a56] [&_h2]:pt-4 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-[#1c2834]"
+            : "w-full space-y-4 text-[15px] leading-7 text-[#4B5563] [&_h2]:pt-4 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:text-[#111827] [&>p]:max-w-3xl"
         }
       >
         {children}
@@ -45,25 +44,29 @@ export function ContactFacts() {
     ["Legal name", merchant.legalName],
     ["Email", merchant.email],
     ["Address", merchant.address],
-    ["City", merchant.city],
   ];
   if (merchant.phone.trim()) rows.splice(2, 0, ["Phone", merchant.phone]);
 
   return (
-    <dl className="grid gap-3 rounded-2xl border border-[#d5dee6] bg-[#ffffff] px-4 py-4 sm:px-5">
+    <dl className="grid gap-3 sm:grid-cols-2">
       {rows.map(([label, value]) => {
         const shown = published(value);
+        const email = label === "Email" && shown.includes("@");
         return (
-          <div key={label} className="grid gap-0.5 sm:grid-cols-[8rem_1fr] sm:gap-3">
-            <dt className="text-sm text-[#52606d]">{label}</dt>
-            <dd>
-              {label === "Email" && shown.includes("@") ? (
-                <a href={`mailto:${shown}`} className="underline underline-offset-4">
+          <div
+            key={label}
+            className="flex flex-col gap-2 rounded-2xl border border-[#E3E6EB] bg-white px-5 py-4 transition duration-200 hover:-translate-y-0.5 hover:border-[#C2410C] hover:bg-[#FFF7F2] hover:shadow-sm"
+          >
+            <dt className="text-xs font-semibold tracking-[0.06em] text-[#4B5563] uppercase">{label}</dt>
+            <dd className="flex flex-wrap items-center justify-between gap-3 text-[15px] font-semibold text-[#111827]">
+              {email ? (
+                <a href={`mailto:${shown}`} className="underline underline-offset-4 hover:text-[#C2410C]">
                   {shown}
                 </a>
               ) : (
-                shown
+                <span>{shown}</span>
               )}
+              {shown !== "Not published" ? <CopyValue value={shown} /> : null}
             </dd>
           </div>
         );
