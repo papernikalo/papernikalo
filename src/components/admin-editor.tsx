@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { AppSelect } from "@/components/app-select";
 import {
   passageLanguages,
   stenoTopics,
@@ -13,6 +14,7 @@ import { examBodies, examBodyName } from "@/lib/exam-bodies";
 
 const fieldClass =
   "w-full rounded-xl border border-[#D1D5DB] bg-white px-3 py-2.5 text-sm text-[#111827] outline-none focus:border-[#C2410C]";
+const LIBRARY_PAGE = 20;
 
 type NamedOption = { id: string; name: string };
 
@@ -38,11 +40,22 @@ export function AdminEditor({
   stats: AdminStats;
 }) {
   const [tab, setTab] = useState<"typing" | "steno">("typing");
-  const passages = [...typing].reverse();
-  const dictations = [...steno].reverse();
-  const typingWords = typing.reduce((sum, item) => sum + countWords(item.text), 0);
-  const englishWords = steno.reduce((sum, item) => sum + countWords(item.english), 0);
-  const hindiWords = steno.reduce((sum, item) => sum + countWords(item.hindi), 0);
+  const [typingList, setTypingList] = useState(typing);
+  const [stenoList, setStenoList] = useState(steno);
+
+  useEffect(() => {
+    setTypingList(typing);
+  }, [typing]);
+
+  useEffect(() => {
+    setStenoList(steno);
+  }, [steno]);
+
+  const passages = [...typingList].reverse();
+  const dictations = [...stenoList].reverse();
+  const typingWords = typingList.reduce((sum, item) => sum + countWords(item.text), 0);
+  const englishWords = stenoList.reduce((sum, item) => sum + countWords(item.english), 0);
+  const hindiWords = stenoList.reduce((sum, item) => sum + countWords(item.hindi), 0);
 
   return (
     <div className="mx-auto flex w-full max-w-[1200px] flex-1 flex-col gap-8 px-6 py-10 pb-16 text-[#111827]">
@@ -62,8 +75,8 @@ export function AdminEditor({
         <Stat label="Steno attempts" value={stats.stenoAttempts} note="Tests saved on accounts" />
         <Stat
           label="Your library"
-          value={typing.length + steno.length}
-          note={`${typing.length} passages · ${steno.length} dictations`}
+          value={typingList.length + stenoList.length}
+          note={`${typingList.length} passages · ${stenoList.length} dictations`}
           dark
         />
       </section>
@@ -86,16 +99,35 @@ export function AdminEditor({
       </div>
 
       {tab === "typing" ? (
-        <TypingPanel passages={passages} customExams={customExams} />
+        <TypingPanel
+          passages={passages}
+          customExams={customExams}
+          onSaved={(item) => setTypingList((current) => [...current, item])}
+          onRemoved={(id) => setTypingList((current) => current.filter((item) => item.id !== id))}
+        />
       ) : (
-        <StenoPanel dictations={dictations} customDictations={customDictations} />
+        <StenoPanel
+          dictations={dictations}
+          customDictations={customDictations}
+          onSaved={(item) => setStenoList((current) => [...current, item])}
+          onRemoved={(id) => setStenoList((current) => current.filter((item) => item.id !== id))}
+        />
       )}
     </div>
   );
 }
 
-function TypingPanel({ passages, customExams }: { passages: SavedTypingPassage[]; customExams: NamedOption[] }) {
-  const router = useRouter();
+function TypingPanel({
+  passages,
+  customExams,
+  onSaved,
+  onRemoved,
+}: {
+  passages: SavedTypingPassage[];
+  customExams: NamedOption[];
+  onSaved: (item: SavedTypingPassage) => void;
+  onRemoved: (id: string) => void;
+}) {
   const [title, setTitle] = useState("");
   const [examId, setExamId] = useState("dhc");
   const [language, setLanguage] = useState<(typeof passageLanguages)[number]>("English");
@@ -130,14 +162,14 @@ function TypingPanel({ passages, customExams }: { passages: SavedTypingPassage[]
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, language, examId, minutes: Number(minutes), text }),
       });
-      const body = (await response.json()) as { error?: string };
-      if (!response.ok) {
+      const body = (await response.json()) as { error?: string; passage?: SavedTypingPassage };
+      if (!response.ok || !body.passage) {
         setError(body.error || "That passage could not be saved.");
         return;
       }
+      onSaved(body.passage);
       setTitle("");
       setText("");
-      router.refresh();
     } catch {
       setError("That passage could not be saved.");
     } finally {
@@ -179,14 +211,14 @@ function TypingPanel({ passages, customExams }: { passages: SavedTypingPassage[]
               {targetWords ? `${targetWords} words at ${typingWordsPerMinute} per minute.` : "Minutes for this passage, from 1 to 60."}
             </span>
           </label>
-          <label className="grid gap-1.5 text-sm sm:col-span-2">
+          <div className="grid gap-1.5 text-sm sm:col-span-2">
             <FieldLabel>Language</FieldLabel>
-            <select value={language} onChange={(event) => setLanguage(event.target.value as typeof language)} className={fieldClass}>
-              {passageLanguages.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </label>
+            <AppSelect
+              value={language}
+              options={passageLanguages.map((item) => ({ value: item, label: item }))}
+              onChange={(value) => setLanguage(value as typeof language)}
+            />
+          </div>
         </FormStep>
         <FormStep n="2" title="Passage">
           <label className="grid gap-1.5 text-sm sm:col-span-2">
@@ -229,7 +261,11 @@ function TypingPanel({ passages, customExams }: { passages: SavedTypingPassage[]
           when: item.createdAt,
           detail: item.text,
         }))}
-        onRemove={(id) => removeItem("/api/admin/typing", id, router)}
+        onRemove={async (id) => {
+          const message = await removeItem("/api/admin/typing", id);
+          if (!message) onRemoved(id);
+          return message;
+        }}
       />
     </div>
   );
@@ -238,11 +274,14 @@ function TypingPanel({ passages, customExams }: { passages: SavedTypingPassage[]
 function StenoPanel({
   dictations,
   customDictations,
+  onSaved,
+  onRemoved,
 }: {
   dictations: SavedStenoDictation[];
   customDictations: NamedOption[];
+  onSaved: (item: SavedStenoDictation) => void;
+  onRemoved: (id: string) => void;
 }) {
-  const router = useRouter();
   const [title, setTitle] = useState("");
   const [topic, setTopic] = useState("Legal");
   const [english, setEnglish] = useState("");
@@ -264,15 +303,15 @@ function StenoPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, topic, english, hindi }),
       });
-      const body = (await response.json()) as { error?: string };
-      if (!response.ok) {
+      const body = (await response.json()) as { error?: string; dictation?: SavedStenoDictation };
+      if (!response.ok || !body.dictation) {
         setError(body.error || "That dictation could not be saved.");
         return;
       }
+      onSaved(body.dictation);
       setTitle("");
       setEnglish("");
       setHindi("");
-      router.refresh();
     } catch {
       setError("That dictation could not be saved.");
     } finally {
@@ -343,7 +382,11 @@ function StenoPanel({
           when: item.createdAt,
           detail: item.english,
         }))}
-        onRemove={(id) => removeItem("/api/admin/steno", id, router)}
+        onRemove={async (id) => {
+          const message = await removeItem("/api/admin/steno", id);
+          if (!message) onRemoved(id);
+          return message;
+        }}
       />
     </div>
   );
@@ -442,17 +485,15 @@ function ChoiceField({
   return (
     <div className="grid gap-2 text-sm sm:col-span-2">
       <FieldLabel>{label}</FieldLabel>
-      <select
+      <AppSelect
         value={options.some((item) => (kind === "exam" ? item.id : item.name) === selected) ? selected : builtIn[0]?.id ?? ""}
-        onChange={(event) => onChange(event.target.value)}
-        className={fieldClass}
-      >
-        {options.map((item) => (
-          <option key={item.id} value={kind === "exam" ? item.id : item.name}>
-            {item.name}
-          </option>
-        ))}
-      </select>
+        options={options.map((item) => ({
+          value: kind === "exam" ? item.id : item.name,
+          label: item.name,
+        }))}
+        onChange={onChange}
+        searchable
+      />
       <div className="flex gap-2">
         <input
           value={draft}
@@ -535,13 +576,15 @@ function Library({
 }) {
   const [error, setError] = useState("");
   const [pending, setPending] = useState("");
+  const [visibleCount, setVisibleCount] = useState(LIBRARY_PAGE);
+  const visible = items.slice(0, visibleCount);
 
   return (
     <aside className="flex flex-col gap-3 rounded-2xl border border-[#E3E6EB] bg-white p-5">
       <h2 className="font-display text-xl font-bold">Saved</h2>
       {items.length === 0 ? <p className="text-sm text-[#4B5563]">{empty}</p> : null}
       <ul className="grid gap-3">
-        {items.map((item) => (
+        {visible.map((item) => (
           <li key={item.id} className="rounded-xl border border-[#E3E6EB] p-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -569,6 +612,15 @@ function Library({
           </li>
         ))}
       </ul>
+      {items.length > visible.length ? (
+        <button
+          type="button"
+          onClick={() => setVisibleCount((count) => count + LIBRARY_PAGE)}
+          className="rounded-xl border border-[#D1D5DB] px-4 py-2.5 text-sm font-semibold text-[#111827]"
+        >
+          Show more saved items
+        </button>
+      ) : null}
       {error ? <p className="text-sm text-[#C2410C]">{error}</p> : null}
     </aside>
   );
@@ -585,7 +637,7 @@ function formatWhen(iso: string) {
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
-async function removeItem(url: string, id: string, router: { refresh: () => void }) {
+async function removeItem(url: string, id: string) {
   try {
     const response = await fetch(url, {
       method: "DELETE",
@@ -594,7 +646,6 @@ async function removeItem(url: string, id: string, router: { refresh: () => void
     });
     const body = (await response.json()) as { error?: string };
     if (!response.ok) return body.error || "That item could not be removed.";
-    router.refresh();
     return null;
   } catch {
     return "That item could not be removed.";

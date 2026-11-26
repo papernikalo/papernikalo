@@ -2,6 +2,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import bcrypt from "bcryptjs";
 import { MongoServerError, ObjectId } from "mongodb";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 import { cache } from "react";
 import {
   ACCESS_COOKIE,
@@ -370,6 +371,7 @@ export async function refreshAccount(refreshToken: string | undefined) {
 }
 
 export async function readAccessUserId() {
+  await connection();
   const jar = await cookies();
   const access = jar.get(ACCESS_COOKIE)?.value;
   if (!access) return null;
@@ -379,6 +381,7 @@ export async function readAccessUserId() {
 /** The signed-in account for this request, without rotating the refresh key. */
 export const readCurrentUser = cache(async (): Promise<PublicUser | null> => {
   try {
+    await connection();
     const jar = await cookies();
     const access = jar.get(ACCESS_COOKIE)?.value;
     const refreshToken = jar.get(REFRESH_COOKIE)?.value;

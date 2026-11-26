@@ -9,13 +9,16 @@ import { useTestChrome } from "@/components/test-chrome";
 import { clearLocalDraft, writeLocalDraft } from "@/lib/local-draft";
 import { usePracticeCatalog, usePracticeReady } from "@/lib/practice-catalog";
 import type { StenoDictation } from "@/lib/steno-dictations";
+import type { StenoAttemptRow } from "@/lib/steno-progress";
 import { alignWords, wordsOf, type AlignedWord } from "@/lib/typing-score";
 
 const STENO_DRAFT_KEY = "papernikalo-steno-draft";
+const STENO_DONE_KEY = "papernikalo-steno-done";
 const SPEED_KEY = "papernikalo-steno-speed";
 const MODE_KEY = "papernikalo-steno-mode";
 const PAGE_SIZE = 9;
 const PASS_ERROR = 7;
+const WORD_CATEGORIES = [400, 840] as const;
 
 const speeds = [60, 80, 100, 120];
 const MIN_SPEED = 40;
@@ -24,7 +27,38 @@ const MAX_SPEED = 200;
 export function StenoExam() {
   const catalog = usePracticeCatalog();
   const contentReady = usePracticeReady();
-  return <StenoPractice dictations={catalog.steno} contentReady={contentReady} />;
+  const [shellKey, setShellKey] = useState(0);
+
+  useEffect(() => {
+    let finished = false;
+    try {
+      finished = sessionStorage.getItem(STENO_DONE_KEY) === "1";
+      if (finished) sessionStorage.removeItem(STENO_DONE_KEY);
+    } catch {
+      finished = false;
+    }
+    if (finished) setShellKey((value) => value + 1);
+
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted) return;
+      try {
+        sessionStorage.removeItem(STENO_DONE_KEY);
+      } catch {
+        /* ignore */
+      }
+      setShellKey((value) => value + 1);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
+
+  return (
+    <StenoPractice
+      key={shellKey}
+      dictations={catalog.steno}
+      contentReady={contentReady}
+    />
+  );
 }
 
 export function StenoPractice({
@@ -36,7 +70,6 @@ export function StenoPractice({
 }) {
   const [phase, setPhase] = useState<"setup" | "session">("setup");
   const [speed, setSpeed] = useState(80);
-  const [customSpeed, setCustomSpeed] = useState("");
   const [saveNote, setSaveNote] = useState("");
   const [dictationId, setDictationId] = useState(dictations[0]?.id ?? "");
   const [step, setStep] = useState<"listen" | "type">("listen");
@@ -48,10 +81,12 @@ export function StenoPractice({
   const [submitted, setSubmitted] = useState(false);
   const [query, setQuery] = useState("");
   const [topicFilter, setTopicFilter] = useState("all");
-  const [lengthFilter, setLengthFilter] = useState<number | "all">("all");
+  const [lengthFilter, setLengthFilter] = useState<number | "unattempted">(400);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [speedOpen, setSpeedOpen] = useState(false);
   const [typeTick, setTypeTick] = useState(0);
+  const [practicePulse, setPracticePulse] = useState(false);
+  const [lastAttempts, setLastAttempts] = useState<Record<string, StenoAttemptRow>>({});
   const playToken = useRef(0);
   const spokenRef = useRef(0);
   const typeStarted = useRef<number | null>(null);
@@ -64,11 +99,6 @@ export function StenoPractice({
   const pendingSubmit = useRef(false);
   const submittedRef = useRef(false);
   const commitSubmitRef = useRef<(save: boolean) => void>(() => {});
-  const customValue = Number(customSpeed);
-  const customInvalid =
-    customSpeed.trim() !== "" &&
-    (!Number.isInteger(customValue) || customValue < MIN_SPEED || customValue > MAX_SPEED);
-
   useTestChrome(phase === "session" && !submitted);
 
   const isTest = mode === "test";
@@ -96,7 +126,6 @@ export function StenoPractice({
     const savedMode = localStorage.getItem(MODE_KEY);
     if (Number.isInteger(savedSpeed) && savedSpeed >= MIN_SPEED && savedSpeed <= MAX_SPEED) {
       setSpeed(savedSpeed);
-      if (!speeds.includes(savedSpeed)) setCustomSpeed(String(savedSpeed));
     }
     if (savedMode === "test" || savedMode === "practice") setMode(savedMode);
   }, []);
@@ -116,6 +145,35 @@ export function StenoPractice({
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [query, topicFilter, lengthFilter]);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (!user) {
+      setLastAttempts({});
+      return;
+    }
+    let cancelled = false;
+    void fetch("/api/account/steno", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return [] as StenoAttemptRow[];
+        const body = (await response.json()) as { attempts?: StenoAttemptRow[] };
+        return Array.isArray(body.attempts) ? body.attempts : [];
+      })
+      .then((attempts) => {
+        if (cancelled) return;
+        const latest: Record<string, StenoAttemptRow> = {};
+        for (const attempt of attempts) {
+          if (!latest[attempt.passageLabel]) latest[attempt.passageLabel] = attempt;
+        }
+        setLastAttempts(latest);
+      })
+      .catch(() => {
+        if (!cancelled) setLastAttempts({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user]);
 
   useEffect(() => {
     if (step !== "type" || submitted) return;
@@ -214,7 +272,6 @@ export function StenoPractice({
   function changeSpeed(value: number) {
     if (isTest && phase === "session") return;
     setSpeed(value);
-    setCustomSpeed(speeds.includes(value) ? "" : String(value));
     setSpeedOpen(false);
     if (playing) speakFrom(spokenRef.current, value);
   }
@@ -257,12 +314,17 @@ export function StenoPractice({
   }
 
   function begin() {
+    try {
+      sessionStorage.removeItem(STENO_DONE_KEY);
+    } catch {
+      /* ignore */
+    }
     resetAttempt();
     setPhase("session");
   }
 
   function requestStart() {
-    if (!contentReady || dictations.length === 0 || customInvalid || !dictation.id) return;
+    if (!contentReady || dictations.length === 0 || !dictation.id) return;
     setGate("confirm");
   }
 
@@ -302,16 +364,6 @@ export function StenoPractice({
     setStep("type");
   }
 
-  function chooseCustom(raw: string) {
-    setCustomSpeed(raw);
-    if (raw.trim() === "") {
-      if (!speeds.includes(speed)) setSpeed(80);
-      return;
-    }
-    const value = Number(raw);
-    if (Number.isInteger(value) && value >= MIN_SPEED && value <= MAX_SPEED) setSpeed(value);
-  }
-
   function submitPractice() {
     if (submitted || transcript.trim().length === 0) return;
     if (isTest && !user) {
@@ -338,6 +390,11 @@ export function StenoPractice({
     const mistakes = rows.length - correct;
     const accuracy = reference.length ? Math.round((correct / reference.length) * 1000) / 10 : 0;
     setSubmitted(true);
+    try {
+      sessionStorage.setItem(STENO_DONE_KEY, "1");
+    } catch {
+      /* ignore */
+    }
     if (!isTest || !save) {
       setSaveNote(isTest ? "Sign in to keep this result." : "This practice is not saved.");
       return;
@@ -362,6 +419,10 @@ export function StenoPractice({
           const body = (await response.json()) as { error?: string };
           setSaveNote(body.error || "This practice could not be saved on your account.");
           return;
+        }
+        const body = (await response.json()) as { attempt?: StenoAttemptRow };
+        if (body.attempt) {
+          setLastAttempts((current) => ({ ...current, [body.attempt!.passageLabel]: body.attempt! }));
         }
         setSaveNote("Saved on your account.");
       })
@@ -393,14 +454,13 @@ export function StenoPractice({
     for (const row of catalogRows) counts.set(row.topic, (counts.get(row.topic) ?? 0) + 1);
     return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [catalogRows]);
-  const lengths = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const row of catalogRows) counts.set(row.words, (counts.get(row.words) ?? 0) + 1);
-    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 4).map(([count]) => count).sort((a, b) => a - b);
-  }, [catalogRows]);
   const filtered = catalogRows.filter((row) => {
     if (topicFilter !== "all" && row.topic !== topicFilter) return false;
-    if (lengthFilter !== "all" && row.words !== lengthFilter) return false;
+    if (lengthFilter === "unattempted") {
+      if (lastAttempts[row.item.title]) return false;
+    } else if (wordCategory(row.words) !== lengthFilter) {
+      return false;
+    }
     const needle = query.trim().toLowerCase();
     if (!needle) return true;
     return `${row.item.title} ${row.topic}`.toLowerCase().includes(needle);
@@ -420,7 +480,7 @@ export function StenoPractice({
     return (
       <div className="bg-[#F5F6F8] text-[#111827]">
         {startDialogs()}
-        <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-6 py-8 lg:flex-row lg:items-start lg:gap-8 lg:px-10">
+        <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-6 py-8 lg:flex-row lg:items-start lg:gap-8">
           <main className="flex min-w-0 flex-1 flex-col gap-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
@@ -454,16 +514,16 @@ export function StenoPractice({
                   </FilterTab>
                 ))}
               </div>
-              {lengths.length > 1 ? (
-                <div className="flex flex-wrap gap-2">
-                  <LengthChip on={lengthFilter === "all"} onClick={() => setLengthFilter("all")}>All lengths</LengthChip>
-                  {lengths.map((count) => (
-                    <LengthChip key={count} on={lengthFilter === count} onClick={() => setLengthFilter(count)}>
-                      {`${count} words`}
-                    </LengthChip>
-                  ))}
-                </div>
-              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {WORD_CATEGORIES.map((count) => (
+                  <LengthChip key={count} on={lengthFilter === count} onClick={() => setLengthFilter(count)}>
+                    {`${count} words`}
+                  </LengthChip>
+                ))}
+                <LengthChip on={lengthFilter === "unattempted"} onClick={() => setLengthFilter("unattempted")}>
+                  Not attempted
+                </LengthChip>
+              </div>
             </div>
 
             {!contentReady ? (
@@ -476,6 +536,8 @@ export function StenoPractice({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {visible.map(({ item, words, topic }) => {
                   const selected = item.id === dictation.id;
+                  const last = lastAttempts[item.title];
+                  const lastError = last ? attemptErrorPercent(last) : null;
                   return (
                     <button
                       key={item.id}
@@ -491,13 +553,31 @@ export function StenoPractice({
                         <span className={`text-xs font-semibold tracking-[0.04em] uppercase ${topicTone(topic)}`}>{topic}</span>
                         {selected ? (
                           <span className="rounded-full bg-[#C2410C] px-2 py-0.5 text-xs font-medium text-white">Selected</span>
+                        ) : lastError !== null ? (
+                          <span
+                            className={
+                              lastError <= PASS_ERROR
+                                ? "rounded-full bg-[#E7F5EC] px-2 py-0.5 text-xs font-medium text-[#166534]"
+                                : "rounded-full bg-[#FEF3C7] px-2 py-0.5 text-xs font-medium text-[#92400E]"
+                            }
+                          >
+                            Last {lastError.toFixed(1)}% errors
+                          </span>
                         ) : null}
                       </span>
                       <span className="line-clamp-2 h-[47px] text-left font-display text-lg leading-snug font-semibold text-[#111827]">{item.title}</span>
-                      <span className="flex gap-3.5 text-[13px] text-[#4B5563]">
+                      <span className="flex flex-wrap gap-x-3.5 gap-y-1 text-[13px] text-[#4B5563]">
                         <span>{words} words</span>
                         <span>·</span>
                         <span>{minutesAt80(words)} min at 80 wpm</span>
+                        {last ? (
+                          <>
+                            <span>·</span>
+                            <span>
+                              Last {last.speed} wpm · {last.correct}/{last.words} correct
+                            </span>
+                          </>
+                        ) : null}
                       </span>
                     </button>
                   );
@@ -526,42 +606,6 @@ export function StenoPractice({
               </div>
             </div>
             <div className="flex flex-col gap-2.5">
-              <span className="text-sm font-semibold">Dictation speed</span>
-              <div className="grid grid-cols-4 gap-2">
-                {speeds.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => changeSpeed(item)}
-                    className={
-                      item === speed && customSpeed.trim() === ""
-                        ? "h-11 rounded-[10px] border border-[#C2410C] bg-[#C2410C] text-sm font-semibold text-white"
-                        : "h-11 rounded-[10px] border border-[#D1D5DB] bg-white text-sm text-[#111827]"
-                    }
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-              <label className="text-xs text-[#6B7280]">
-                wpm · remembered from your last session
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={MIN_SPEED}
-                  max={MAX_SPEED}
-                  step={1}
-                  value={customSpeed}
-                  placeholder="Custom speed"
-                  onChange={(event) => chooseCustom(event.target.value)}
-                  className="mt-2 h-10 w-full rounded-[10px] border border-[#D1D5DB] bg-white px-3 text-sm font-semibold text-[#111827]"
-                />
-              </label>
-              {customInvalid ? (
-                <span className="text-xs text-[#C2410C]">Enter a whole number from {MIN_SPEED} to {MAX_SPEED}.</span>
-              ) : null}
-            </div>
-            <div className="flex flex-col gap-2.5">
               <span className="text-sm font-semibold">Mode</span>
               <button
                 type="button"
@@ -588,7 +632,7 @@ export function StenoPractice({
             <button
               type="button"
               onClick={requestStart}
-              disabled={!contentReady || dictations.length === 0 || customInvalid || !dictation.id}
+              disabled={!contentReady || dictations.length === 0 || !dictation.id}
               className="h-[52px] rounded-xl bg-[#C2410C] text-base font-semibold text-white disabled:opacity-40"
             >
               Start dictation
@@ -600,13 +644,13 @@ export function StenoPractice({
   }
 
   if (submitted && comparison) {
-    const result = summarise(comparison, scriptWords.length);
+    const result = summarise(comparison, typedWords);
     const typedMinutes = typeStarted.current ? Math.max(1, Math.round((performance.now() - typeStarted.current) / 60000)) : 0;
     const limitMinutes = typeLimitSeconds > 0 ? Math.round(typeLimitSeconds / 60) : 0;
     return (
       <div className="bg-[#F5F6F8] text-[#111827]">
         {startDialogs()}
-        <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-6 py-8 lg:px-10">
+        <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-6 py-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <p className="text-[13px] text-[#6B7280]">
@@ -614,13 +658,33 @@ export function StenoPractice({
               </p>
               <h1 className="mt-1.5 font-display text-[34px] font-bold">{dictation.title}</h1>
             </div>
-            <div className="flex flex-wrap gap-2.5">
-              <button type="button" onClick={begin} className="h-[46px] rounded-[10px] border border-[#D1D5DB] bg-white px-4 text-sm">Try again</button>
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => practiceListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                className="h-[46px] rounded-[10px] border border-[#D1D5DB] bg-white px-4 text-sm"
+                onClick={begin}
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#D1D5DB] bg-white px-4 text-sm font-medium text-[#111827] transition duration-150 hover:-translate-y-0.5 hover:border-[#C2410C] hover:bg-[#FFF7F2] hover:text-[#C2410C] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] active:translate-y-0 active:scale-[0.98]"
               >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M3 12a9 9 0 1 0 3-6.7" />
+                  <path d="M3 4v5h5" />
+                </svg>
+                Try again
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  practiceListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  setPracticePulse(true);
+                  window.setTimeout(() => setPracticePulse(false), 1400);
+                }}
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#D1D5DB] bg-white px-4 text-sm font-medium text-[#111827] transition duration-150 hover:-translate-y-0.5 hover:border-[#C2410C] hover:bg-[#FFF7F2] hover:text-[#C2410C] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] active:translate-y-0 active:scale-[0.98]"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M4 19V5" />
+                  <path d="M4 5h10l-1.5 3L14 11H4" />
+                  <path d="M14 19h6" />
+                  <path d="M17 16v6" />
+                </svg>
                 Practise my mistakes
               </button>
               <button
@@ -631,9 +695,10 @@ export function StenoPractice({
                   if (next) selectDictation(next.id);
                   setPhase("setup");
                 }}
-                className="h-[46px] rounded-[10px] bg-[#C2410C] px-5 text-sm font-semibold text-white"
+                className="group inline-flex h-11 items-center gap-2 rounded-xl bg-[#C2410C] px-5 text-sm font-semibold text-white transition duration-150 hover:-translate-y-0.5 hover:bg-[#A3380A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] active:translate-y-0 active:scale-[0.98]"
               >
-                Next passage →
+                Next passage
+                <span aria-hidden="true" className="transition-transform duration-150 group-hover:translate-x-0.5">→</span>
               </button>
             </div>
           </div>
@@ -648,7 +713,7 @@ export function StenoPractice({
                   {result.errorPercent.toFixed(1)}%
                 </div>
                 <div className={result.pass ? "mt-1.5 text-sm text-[#166534]" : "mt-1.5 text-sm text-[#991B1B]"}>
-                  Error rate · limit for SSC Grade D is {PASS_ERROR}%
+                  Error rate of words typed · limit for SSC Grade D is {PASS_ERROR}%
                 </div>
               </div>
             </div>
@@ -693,33 +758,48 @@ export function StenoPractice({
                 ))}
               </p>
             </section>
-            <aside ref={practiceListRef} className="flex w-full shrink-0 flex-col gap-3.5 rounded-2xl border border-[#E5E7EB] bg-white p-5 xl:w-80">
+            <aside
+              ref={practiceListRef}
+              className={
+                practicePulse
+                  ? "flex w-full shrink-0 flex-col gap-3.5 rounded-2xl border-2 border-[#C2410C] bg-[#FFF7F2] p-5 shadow-[0_0_0_4px_#FDE7DB] transition xl:w-80"
+                  : "flex w-full shrink-0 flex-col gap-3.5 rounded-2xl border border-[#E5E7EB] bg-white p-5 transition xl:w-80"
+              }
+            >
               <h2 className="text-base font-semibold">Words to practise</h2>
-              <p className="text-[13px] text-[#6B7280]">Taken from this attempt</p>
+              <p className="text-[13px] text-[#6B7280]">Tap a word to hear it, or drill the full list</p>
               {result.practice.length === 0 ? (
                 <p className="text-sm text-[#4B5563]">No mistakes in this transcription.</p>
               ) : (
                 result.practice.map((item) => (
-                  <div key={`${item.word}-${item.note}`} className="flex items-center justify-between rounded-[10px] bg-[#F5F6F8] px-3 py-2.5 text-sm">
+                  <button
+                    key={`${item.word}-${item.note}`}
+                    type="button"
+                    onClick={() => speakWords([item.word], language)}
+                    className="flex w-full items-center justify-between rounded-[10px] bg-[#F5F6F8] px-3 py-2.5 text-left text-sm transition hover:-translate-y-0.5 hover:bg-[#FDE7DB] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] active:scale-[0.99]"
+                  >
                     <span className="font-medium">{item.word}</span>
-                    <span className="text-xs text-[#6B7280]">{item.note}</span>
-                  </div>
+                    <span className="flex items-center gap-2 text-xs text-[#6B7280]">
+                      {item.note}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M11 5L6 9H3v6h3l5 4V5z" />
+                        <path d="M15.5 8.5a4.5 4.5 0 0 1 0 7" />
+                      </svg>
+                    </span>
+                  </button>
                 ))
               )}
               <button
                 type="button"
                 disabled={result.practice.length === 0}
-                onClick={() => {
-                  const synth = window.speechSynthesis;
-                  if (!synth || result.practice.length === 0) return;
-                  synth.cancel();
-                  const utterance = new SpeechSynthesisUtterance(result.practice.map((item) => item.word).join(". "));
-                  utterance.lang = language === "Hindi" ? "hi-IN" : "en-IN";
-                  utterance.rate = 0.9;
-                  synth.speak(utterance);
-                }}
-                className="h-11 rounded-[10px] border border-[#C2410C] bg-white text-sm font-semibold text-[#C2410C] disabled:opacity-40"
+                onClick={() => speakWords(result.practice.map((item) => item.word), language)}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#C2410C] bg-white text-sm font-semibold text-[#C2410C] transition hover:-translate-y-0.5 hover:bg-[#C2410C] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C2410C] active:scale-[0.98] disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:bg-white disabled:hover:text-[#C2410C]"
               >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M11 5L6 9H3v6h3l5 4V5z" />
+                  <path d="M15.5 8.5a4.5 4.5 0 0 1 0 7" />
+                  <path d="M18 6a8 8 0 0 1 0 12" />
+                </svg>
                 Drill these words
               </button>
             </aside>
@@ -737,7 +817,7 @@ export function StenoPractice({
       {startDialogs()}
       <LeaveGuard active={sessionOpen} storageKey={STENO_DRAFT_KEY} onLeave={abandonAttempt} />
       <div className="border-b border-[#E5E7EB] bg-white">
-        <div className="mx-auto flex w-full max-w-[1280px] flex-wrap items-center justify-between gap-4 px-6 py-3.5 lg:px-10">
+        <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-4 px-6 py-3.5">
           <div className="flex flex-wrap items-center gap-3.5">
             <span className="font-display text-lg font-semibold">{dictation.title}</span>
             <span className={isTest && step === "type" ? "rounded-full bg-[#111827] px-2.5 py-1 text-xs font-medium text-white" : "rounded-full bg-[#FDE7DB] px-2.5 py-1 text-xs font-medium text-[#8A300A]"}>
@@ -764,7 +844,7 @@ export function StenoPractice({
           )}
         </div>
       </div>
-      <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-6 py-7 lg:px-10">
+      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-6 py-7">
         <Stepper step={step} />
         {step === "listen" ? (
           <>
@@ -1035,7 +1115,7 @@ function ComparedWord({ word }: { word: AlignedWord }) {
   return <span className="rounded bg-[#FEE2E2] px-1 text-[#991B1B] line-through">{word.typed} </span>;
 }
 
-function summarise(rows: AlignedWord[], referenceWords: number) {
+function summarise(rows: AlignedWord[], typedCount: number) {
   let half = 0;
   let full = 0;
   const practice: { word: string; note: string }[] = [];
@@ -1051,8 +1131,8 @@ function summarise(rows: AlignedWord[], referenceWords: number) {
     seen.add(key);
     practice.push({ word, note });
   }
-  const errorPercent = referenceWords ? ((full + half / 2) / referenceWords) * 100 : 0;
-  return { half, full, errorPercent, pass: errorPercent <= PASS_ERROR, practice };
+  const errorPercent = typedCount ? ((full + half / 2) / typedCount) * 100 : 0;
+  return { half, full, errorPercent, pass: typedCount > 0 && errorPercent <= PASS_ERROR, practice };
 }
 
 function topicTone(topic: string) {
@@ -1060,6 +1140,27 @@ function topicTone(topic: string) {
   if (topic === "Parliament") return "text-[#C2410C]";
   if (topic === "Office") return "text-[#1D4ED8]";
   return "text-[#4B5563]";
+}
+
+function speakWords(words: string[], language: "English" | "Hindi") {
+  const synth = window.speechSynthesis;
+  if (!synth || words.length === 0) return;
+  synth.cancel();
+  const utterance = new SpeechSynthesisUtterance(words.join(". "));
+  utterance.lang = language === "Hindi" ? "hi-IN" : "en-IN";
+  utterance.rate = 0.9;
+  synth.speak(utterance);
+}
+
+function attemptErrorPercent(attempt: Pick<StenoAttemptRow, "mistakes" | "words" | "accuracy">) {
+  if (attempt.words > 0) return Math.round((attempt.mistakes / attempt.words) * 1000) / 10;
+  return Math.round((100 - attempt.accuracy) * 10) / 10;
+}
+
+function wordCategory(words: number) {
+  return WORD_CATEGORIES.reduce((best, item) =>
+    Math.abs(item - words) < Math.abs(best - words) ? item : best,
+  );
 }
 
 function minutesAt80(words: number) {

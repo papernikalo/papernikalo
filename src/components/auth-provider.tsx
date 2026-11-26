@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AUTH_CHECK_MS, type PublicUser } from "@/lib/auth-config";
 import { clearStoredTypingHistory } from "@/lib/typing-progress";
 
@@ -20,6 +21,7 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<PublicUser | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -55,8 +57,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearStoredTypingHistory();
       setUser(null);
       setReady(true);
+      router.replace("/");
+      router.refresh();
     }
-  }, []);
+  }, [router]);
 
   const value = useMemo(() => ({ user, ready, setUser, signOut }), [user, ready, signOut]);
 

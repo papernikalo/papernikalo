@@ -9,6 +9,7 @@ import {
   type RefObject,
 } from "react";
 import Link from "next/link";
+import { AppSelect } from "@/components/app-select";
 import { useAuth } from "@/components/auth-provider";
 import { LeaveGuard } from "@/components/leave-guard";
 import { ConfirmStartDialog, SignInModal } from "@/components/start-dialogs";
@@ -677,21 +678,14 @@ export function TypingTest({
               </div>
             </div>
             <div className="flex flex-col gap-2.5">
-              <label htmlFor="passage" className="text-sm font-semibold">
-                Passage
-              </label>
-              <select
-                id="passage"
+              <span className="text-sm font-semibold">Passage</span>
+              <AppSelect
                 value={passageChoice}
-                onChange={(event) => choosePassage(event.target.value)}
-                className="h-11 rounded-lg border border-[#D1D5DB] bg-white px-3 text-[15px]"
-              >
-                {passageChoices.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
+                options={passageChoices}
+                onChange={choosePassage}
+                searchable
+                placeholder="Choose a passage"
+              />
               {!passagesReady ? (
                 <span className="text-[13px] text-[#4B5563]">Loading passages…</span>
               ) : passageChoices.length < 2 ? (
