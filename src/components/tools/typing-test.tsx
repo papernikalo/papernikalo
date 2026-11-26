@@ -14,8 +14,8 @@ import { LeaveGuard } from "@/components/leave-guard";
 import { ConfirmStartDialog, SignInModal } from "@/components/start-dialogs";
 import { useTestChrome } from "@/components/test-chrome";
 import { examBodies, type ExamChoice } from "@/lib/exam-bodies";
-import { usePracticeCatalog } from "@/lib/practice-catalog";
-import { typingPassages, type TypingPassage } from "@/lib/typing-passages";
+import { usePracticeCatalog, usePracticeReady } from "@/lib/practice-catalog";
+import type { TypingPassage } from "@/lib/typing-passages";
 import { clearLocalDraft, writeLocalDraft } from "@/lib/local-draft";
 import { parseTypingAttempt } from "@/lib/typing-progress";
 import {
@@ -42,22 +42,21 @@ function passageFits(item: TypingPassage, examId: string) {
 
 export function TypingExam() {
   const catalog = usePracticeCatalog();
-  const passages = useMemo(
-    () => [...typingPassages, ...catalog.typing],
-    [catalog.typing],
-  );
+  const passagesReady = usePracticeReady();
   const exams = useMemo(() => {
     const extra = catalog.exams.filter((item) => !examBodies.some((built) => built.id === item.id));
     return [...examBodies, ...extra];
   }, [catalog.exams]);
-  return <TypingTest passages={passages} exams={exams} />;
+  return <TypingTest passages={catalog.typing} passagesReady={passagesReady} exams={exams} />;
 }
 
 export function TypingTest({
-  passages = typingPassages,
+  passages = [],
+  passagesReady = true,
   exams = examBodies,
 }: {
   passages?: TypingPassage[];
+  passagesReady?: boolean;
   exams?: readonly ExamChoice[];
 }) {
   const [phase, setPhase] = useState<"setup" | "test" | "result">("setup");
@@ -310,17 +309,17 @@ export function TypingTest({
   }
 
   function begin() {
-    let nextId = passageChoice === "random" ? passageId : passageChoice;
-    if (passageChoice === "random") {
-      const pool = passages
-        .map((item, index) => ({ item, index }))
-        .filter(({ item }) => passageFits(item, examId));
-      const source = pool.length ? pool : passages.map((item, index) => ({ item, index }));
-      const pick = source[Math.floor(Math.random() * source.length)];
-      if (pick) {
-        nextId = String(pick.index);
-        setPassageId(nextId);
-      }
+    const pool = passages
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => passageFits(item, examId));
+    if (!passagesReady || pool.length === 0) return;
+    let nextId = passageChoice;
+    const chosen = pool.find(({ index }) => String(index) === passageChoice);
+    if (!chosen) {
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      nextId = String(pick.index);
+      setPassageId(nextId);
+      setPassageChoice("random");
     }
     const savedMinutes = passages[Number(nextId)]?.minutes;
     if (savedMinutes) setDuration(String(savedMinutes * 60));
@@ -334,6 +333,7 @@ export function TypingTest({
   }
 
   function requestStart() {
+    if (!passagesReady || passageChoices.length < 2) return;
     setGate("confirm");
   }
 
@@ -692,6 +692,11 @@ export function TypingTest({
                   </option>
                 ))}
               </select>
+              {!passagesReady ? (
+                <span className="text-[13px] text-[#4B5563]">Loading passages…</span>
+              ) : passageChoices.length < 2 ? (
+                <span className="text-[13px] text-[#4B5563]">No passages for this exam yet.</span>
+              ) : null}
             </div>
             <div className="flex flex-col gap-3 text-[15px]">
               <label className="flex items-center gap-2.5">
@@ -716,7 +721,8 @@ export function TypingTest({
             <button
               type="button"
               onClick={requestStart}
-              className="rounded-[10px] bg-[#C2410C] px-5 py-3.5 text-center text-base font-semibold text-white"
+              disabled={!passagesReady || passageChoices.length < 2}
+              className="rounded-[10px] bg-[#C2410C] px-5 py-3.5 text-center text-base font-semibold text-white disabled:opacity-40"
             >
               Start test
             </button>

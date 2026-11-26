@@ -7,26 +7,29 @@ import { LeaveGuard } from "@/components/leave-guard";
 import { ConfirmStartDialog, SignInModal } from "@/components/start-dialogs";
 import { useTestChrome } from "@/components/test-chrome";
 import { clearLocalDraft, writeLocalDraft } from "@/lib/local-draft";
-import { usePracticeCatalog } from "@/lib/practice-catalog";
-import { stenoDictations, type StenoDictation } from "@/lib/steno-dictations";
+import { usePracticeCatalog, usePracticeReady } from "@/lib/practice-catalog";
+import type { StenoDictation } from "@/lib/steno-dictations";
 import { alignWords, wordsOf, type AlignedWord } from "@/lib/typing-score";
 
 const STENO_DRAFT_KEY = "papernikalo-steno-draft";
 
 export function StenoExam() {
   const catalog = usePracticeCatalog();
-  const dictations = useMemo(
-    () => [...stenoDictations, ...catalog.steno],
-    [catalog.steno],
-  );
-  return <StenoPractice dictations={dictations} />;
+  const contentReady = usePracticeReady();
+  return <StenoPractice dictations={catalog.steno} contentReady={contentReady} />;
 }
 
 const speeds = [60, 80, 100, 120];
 const MIN_SPEED = 40;
 const MAX_SPEED = 200;
 
-export function StenoPractice({ dictations }: { dictations: StenoDictation[] }) {
+export function StenoPractice({
+  dictations,
+  contentReady = true,
+}: {
+  dictations: StenoDictation[];
+  contentReady?: boolean;
+}) {
   const [phase, setPhase] = useState<"setup" | "session">("setup");
   const [speed, setSpeed] = useState(100);
   const [customSpeed, setCustomSpeed] = useState("");
@@ -59,6 +62,11 @@ export function StenoPractice({ dictations }: { dictations: StenoDictation[] }) 
   const language: "English" | "Hindi" = dictation.english.trim() ? "English" : "Hindi";
   const script = language === "Hindi" ? dictation.hindi : dictation.english;
   const fraction = script.length ? Math.min(1, spoken / script.length) : 0;
+
+  useEffect(() => {
+    if (dictations.some((item) => item.id === dictationId)) return;
+    setDictationId(dictations[0]?.id ?? "");
+  }, [dictations, dictationId]);
 
   useEffect(() => {
     return () => window.speechSynthesis?.cancel();
@@ -163,7 +171,7 @@ export function StenoPractice({ dictations }: { dictations: StenoDictation[] }) 
   }
 
   function requestStart() {
-    if (customInvalid) return;
+    if (!contentReady || dictations.length === 0 || customInvalid) return;
     setGate("confirm");
   }
 
@@ -300,6 +308,11 @@ export function StenoPractice({ dictations }: { dictations: StenoDictation[] }) 
           </div>
           <div className="flex flex-wrap items-start gap-7">
             <section className="grid min-w-0 flex-[999_1_560px] grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
+              {!contentReady ? (
+                <p className="text-[#4B5563]">Loading dictations…</p>
+              ) : dictations.length === 0 ? (
+                <p className="text-[#4B5563]">No dictations yet.</p>
+              ) : null}
               {dictations.map((item) => {
                 const selected = item.id === dictationId;
                 return (
@@ -419,7 +432,7 @@ export function StenoPractice({ dictations }: { dictations: StenoDictation[] }) 
               <button
                 type="button"
                 onClick={requestStart}
-                disabled={customInvalid}
+                disabled={!contentReady || dictations.length === 0 || customInvalid}
                 className="rounded-[10px] bg-[#C2410C] px-5 py-3.5 text-center text-base font-semibold text-white disabled:opacity-40"
               >
                 Start

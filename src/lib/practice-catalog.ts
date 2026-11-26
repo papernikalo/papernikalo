@@ -14,6 +14,7 @@ export type PracticeCatalog = {
 const empty: PracticeCatalog = { typing: [], steno: [], exams: [] };
 
 let catalog = empty;
+let ready = false;
 let started = false;
 const listeners = new Set<() => void>();
 
@@ -90,10 +91,13 @@ export function startPracticeCatalog() {
     })
     .then((payload) => {
       catalog = { typing: asTyping(payload.typing), steno: asSteno(payload.steno), exams: asExams(payload.exams) };
+      ready = true;
       emit();
     })
     .catch(() => {
       catalog = empty;
+      ready = true;
+      emit();
     });
 }
 
@@ -104,4 +108,8 @@ function subscribe(listener: () => void) {
 
 export function usePracticeCatalog() {
   return useSyncExternalStore(subscribe, () => catalog, () => empty);
+}
+
+export function usePracticeReady() {
+  return useSyncExternalStore(subscribe, () => ready, () => false);
 }

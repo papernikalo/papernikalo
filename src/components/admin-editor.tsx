@@ -20,8 +20,6 @@ export type AdminStats = {
   accounts: number;
   typingAttempts: number;
   stenoAttempts: number;
-  builtinTyping: number;
-  builtinSteno: number;
 };
 
 export function AdminEditor({
@@ -85,9 +83,6 @@ export function AdminEditor({
             Steno
           </TabButton>
         </div>
-        <p className="text-sm text-[#4B5563]">
-          Built in already: {stats.builtinTyping} passages · {stats.builtinSteno} dictations
-        </p>
       </div>
 
       {tab === "typing" ? (

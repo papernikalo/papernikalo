@@ -5,8 +5,6 @@ import { PageFrame } from "@/components/page-frame";
 import { readCurrentUser } from "@/lib/auth";
 import { listCustomDictations, listCustomExams, countPracticeActivity, listStenoDictations, listTypingPassages } from "@/lib/practice-content";
 import { privatePageMetadata } from "@/lib/seo";
-import { stenoDictations } from "@/lib/steno-dictations";
-import { typingPassages } from "@/lib/typing-passages";
 
 export const metadata: Metadata = privatePageMetadata({
   path: "/admin",
@@ -44,11 +42,7 @@ export default async function AdminPage() {
         steno={steno}
         customExams={customExams.map(({ id, name }) => ({ id, name }))}
         customDictations={customDictations}
-        stats={{
-          ...activity,
-          builtinTyping: typingPassages.length,
-          builtinSteno: stenoDictations.length,
-        }}
+        stats={activity}
       />
     </main>
   );
