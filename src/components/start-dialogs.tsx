@@ -44,10 +44,10 @@ export function SignInModal({
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             <h2 id="sign-in-modal-title" className="font-display text-2xl font-bold text-[#111827]">
-              {mode === "in" ? "Sign in to start" : "Create an account"}
+              {mode === "in" ? "Sign in to submit" : "Create an account"}
             </h2>
             <p className="mt-1 text-sm leading-relaxed text-[#4B5563]">
-              An account is required before this can begin.
+              Sign in to submit this test and save it on your account.
             </p>
           </div>
           <button

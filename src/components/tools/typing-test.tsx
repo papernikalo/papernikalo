@@ -13,7 +13,9 @@ import { useAuth } from "@/components/auth-provider";
 import { LeaveGuard } from "@/components/leave-guard";
 import { ConfirmStartDialog, SignInModal } from "@/components/start-dialogs";
 import { useTestChrome } from "@/components/test-chrome";
-import { typingPassages } from "@/lib/typing-passages";
+import { examBodies, type ExamChoice } from "@/lib/exam-bodies";
+import { usePracticeCatalog } from "@/lib/practice-catalog";
+import { typingPassages, type TypingPassage } from "@/lib/typing-passages";
 import { clearLocalDraft, writeLocalDraft } from "@/lib/local-draft";
 import { parseTypingAttempt } from "@/lib/typing-progress";
 import {
@@ -25,17 +27,6 @@ import {
   type TypingScore,
 } from "@/lib/typing-score";
 
-const exams = [
-  { id: "ssc-chsl", name: "SSC CHSL", posts: "LDC / JSA, DEO skill test", langs: "English · Hindi" },
-  { id: "ssc-cgl", name: "SSC CGL", posts: "Data Entry Speed Test (DEST)", langs: "English" },
-  { id: "dhc", name: "Delhi High Court", posts: "JJA, SPA, Personal Assistant", langs: "English · Hindi" },
-  { id: "sci", name: "Supreme Court", posts: "Junior Court Assistant", langs: "English" },
-  { id: "aiims", name: "AIIMS", posts: "LDC, UDC, Stenographer", langs: "English · Hindi" },
-  { id: "dsssb", name: "DSSSB", posts: "LDC, Junior Assistant", langs: "English · Hindi" },
-  { id: "rrb", name: "RRB NTPC", posts: "Clerk, Typist posts", langs: "English · Hindi" },
-  { id: "other", name: "Other / Custom", posts: "Set your own time and rules", langs: "English · Hindi" },
-];
-
 const durationChoices = [
   { value: "300", label: "5 min" },
   { value: "600", label: "10 min" },
@@ -44,14 +35,31 @@ const durationChoices = [
 
 const TYPING_DRAFT_KEY = "papernikalo-typing-draft";
 
-const passageChoices = [
-  { value: "random", label: "Random passage" },
-  { value: "6", label: "Previous-year style" },
-  { value: "0", label: "Legal / court matter" },
-  { value: "4", label: "General article" },
-];
+function passageFits(item: TypingPassage, examId: string) {
+  if (item.examId && item.examId !== examId) return false;
+  return true;
+}
 
-export function TypingTest() {
+export function TypingExam() {
+  const catalog = usePracticeCatalog();
+  const passages = useMemo(
+    () => [...typingPassages, ...catalog.typing],
+    [catalog.typing],
+  );
+  const exams = useMemo(() => {
+    const extra = catalog.exams.filter((item) => !examBodies.some((built) => built.id === item.id));
+    return [...examBodies, ...extra];
+  }, [catalog.exams]);
+  return <TypingTest passages={passages} exams={exams} />;
+}
+
+export function TypingTest({
+  passages = typingPassages,
+  exams = examBodies,
+}: {
+  passages?: TypingPassage[];
+  exams?: readonly ExamChoice[];
+}) {
   const [phase, setPhase] = useState<"setup" | "test" | "result">("setup");
   const [examId, setExamId] = useState("dhc");
   const [language, setLanguage] = useState("English");
@@ -73,11 +81,27 @@ export function TypingTest() {
   const { user, ready } = useAuth();
   const [saveNote, setSaveNote] = useState("");
   const [gate, setGate] = useState<"closed" | "sign-in" | "confirm">("closed");
-  const pendingStart = useRef(false);
+  const pendingFinish = useRef<{ fromTimer?: boolean } | null>(null);
+  const pausedForSignIn = useRef(false);
   const pauseStarted = useRef<number | null>(null);
+  const requestFinishRef = useRef<(options?: { fromTimer?: boolean }) => void>(() => {});
   const signedIn = Boolean(user);
-  const exam = exams.find((item) => item.id === examId) ?? exams[2];
-  useTestChrome(phase === "test" && !paused);
+  const passageChoices = [
+    { value: "random", label: "Random passage" },
+    ...passages.flatMap((item, index) =>
+      passageFits(item, examId)
+        ? [{ value: String(index), label: item.minutes ? `${item.title} · ${item.minutes} min` : item.title }]
+        : [],
+    ),
+  ];
+  const exam = exams.find((item) => item.id === examId) ?? examBodies[2];
+  useTestChrome(phase === "test");
+
+  useEffect(() => {
+    if (passageChoice === "random") return;
+    const item = passages[Number(passageChoice)];
+    if (!item || !passageFits(item, examId)) setPassageChoice("random");
+  }, [examId, passageChoice, passages]);
 
   useEffect(() => {
     if (phase !== "test") {
@@ -91,13 +115,18 @@ export function TypingTest() {
   }, [phase, typed, passageId, examId, language, duration, allowBackspace]);
 
   const passage = useMemo(() => {
-    const index = Number(passageId);
-    const order = [...typingPassages.slice(index), ...typingPassages.slice(0, index)];
+    const fitting = passages.filter((item) => passageFits(item, examId));
+    const start = passages[Number(passageId)];
+    const ordered =
+      start && passageFits(start, examId)
+        ? [start, ...fitting.filter((item) => item !== start)]
+        : fitting;
+    const source = ordered.length ? ordered : passages;
     return {
-      title: order[0]?.title ?? "Passage",
-      words: wordsOf(order.map((item) => item.text).join(" ")),
+      title: source[0]?.title ?? "Passage",
+      words: wordsOf(source.map((item) => item.text).join(" ")),
     };
-  }, [passageId]);
+  }, [examId, passageId, passages]);
 
   const reset = useCallback(() => {
     setTyped("");
@@ -129,11 +158,16 @@ export function TypingTest() {
   const liveGross =
     startedAt === null ? 0 : Math.round(liveChars / 5 / (Math.max(elapsed, 1) / 60));
 
-  const finish = useCallback((options?: { fromTimer?: boolean }) => {
+  const finish = useCallback((options?: { fromTimer?: boolean; save?: boolean }) => {
     if (finished || settled.current || startedAt === null) return;
     if (!options?.fromTimer && typed.trim().length === 0) return;
     settled.current = true;
-    const seconds = Math.min(durationSeconds, (performance.now() - startedAt) / 1000);
+    const pauseHold =
+      pauseStarted.current === null ? 0 : Math.max(0, performance.now() - pauseStarted.current);
+    const seconds = Math.min(
+      durationSeconds,
+      Math.max(0, (performance.now() - startedAt - pauseHold) / 1000),
+    );
     const score = scoreAttempt({
       typedText: typed,
       reference: passage.words,
@@ -144,7 +178,7 @@ export function TypingTest() {
     setPaused(false);
     setResult(score);
     setPhase("result");
-    const passageLabel = `${Number(passageId) + 1}. ${typingPassages[Number(passageId)]?.title ?? "Passage"}`;
+    const passageLabel = `${Number(passageId) + 1}. ${passages[Number(passageId)]?.title ?? "Passage"}`;
     const attempt = parseTypingAttempt({
       passageLabel,
       passageIndex: Number(passageId),
@@ -165,7 +199,7 @@ export function TypingTest() {
       backspace: allowBackspace,
       pass: score.pass,
     });
-    if (!attempt || !signedIn) return;
+    if (!attempt || !(options?.save ?? signedIn)) return;
     setSaveNote("");
     void fetch("/api/account/typing", {
       method: "POST",
@@ -188,6 +222,7 @@ export function TypingTest() {
     typed,
     passage.words,
     passageId,
+    passages,
     allowBackspace,
     signedIn,
   ]);
@@ -198,11 +233,29 @@ export function TypingTest() {
   }, [finish]);
 
   useEffect(() => {
+    if (!ready || !pendingFinish.current) return;
+    if (!user) {
+      if (!pendingFinish.current.fromTimer && pauseStarted.current === null) {
+        pauseStarted.current = performance.now();
+        pausedForSignIn.current = true;
+        setPaused(true);
+      }
+      setGate("sign-in");
+      return;
+    }
+    const pending = pendingFinish.current;
+    pendingFinish.current = null;
+    pausedForSignIn.current = false;
+    setGate("closed");
+    finishRef.current({ ...pending, save: true });
+  }, [ready, user]);
+
+  useEffect(() => {
     if (startedAt === null || finished || paused) return;
     const timer = setInterval(() => {
       const tick = performance.now();
       setNow(tick);
-      if ((tick - startedAt) / 1000 >= durationSeconds) finishRef.current({ fromTimer: true });
+      if ((tick - startedAt) / 1000 >= durationSeconds) requestFinishRef.current({ fromTimer: true });
     }, 250);
     return () => clearInterval(timer);
   }, [startedAt, finished, durationSeconds, paused]);
@@ -233,7 +286,9 @@ export function TypingTest() {
     setTyped(next);
   }
 
-  const durationLabel = durationChoices.find((item) => item.value === duration)?.label ?? "10 min";
+  const durationLabel =
+    durationChoices.find((item) => item.value === duration)?.label ??
+    `${Math.max(1, Math.round(Number(duration) / 60))} min`;
   const completedCount = /\s$/.test(typed) ? typedWords.length : Math.max(0, typedWords.length - 1);
   let correctCount = 0;
   for (let index = 0; index < completedCount; index += 1) {
@@ -246,13 +301,31 @@ export function TypingTest() {
 
   function choosePassage(value: string) {
     setPassageChoice(value);
-    if (value !== "random") setPassageId(value);
+    if (value === "random") return;
+    setPassageId(value);
+    const item = passages[Number(value)];
+    if (item?.language) setLanguage(item.language);
+    const savedMinutes = passages[Number(value)]?.minutes;
+    if (savedMinutes) setDuration(String(savedMinutes * 60));
   }
 
   function begin() {
+    let nextId = passageChoice === "random" ? passageId : passageChoice;
     if (passageChoice === "random") {
-      setPassageId(String(Math.floor(Math.random() * typingPassages.length)));
+      const pool = passages
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => passageFits(item, examId));
+      const source = pool.length ? pool : passages.map((item, index) => ({ item, index }));
+      const pick = source[Math.floor(Math.random() * source.length)];
+      if (pick) {
+        nextId = String(pick.index);
+        setPassageId(nextId);
+      }
     }
+    const savedMinutes = passages[Number(nextId)]?.minutes;
+    if (savedMinutes) setDuration(String(savedMinutes * 60));
+    const savedLanguage = passages[Number(nextId)]?.language;
+    if (savedLanguage) setLanguage(savedLanguage);
     reset();
     const stamp = performance.now();
     setNow(stamp);
@@ -261,26 +334,55 @@ export function TypingTest() {
   }
 
   function requestStart() {
-    if (!ready) {
-      pendingStart.current = true;
-      return;
-    }
-    setGate(user ? "confirm" : "sign-in");
+    setGate("confirm");
   }
 
-  useEffect(() => {
-    if (!ready || !pendingStart.current) return;
-    pendingStart.current = false;
-    setGate(user ? "confirm" : "sign-in");
-  }, [ready, user]);
+  function requestFinish(options?: { fromTimer?: boolean }) {
+    if (finished || settled.current || startedAt === null || pendingFinish.current) return;
+    if (!options?.fromTimer && typed.trim().length === 0) return;
+    if (!ready || !user) {
+      pendingFinish.current = options ?? {};
+      if (!ready) return;
+      if (!options?.fromTimer && pauseStarted.current === null) {
+        pauseStarted.current = performance.now();
+        pausedForSignIn.current = true;
+        setPaused(true);
+      }
+      setGate("sign-in");
+      return;
+    }
+    finish(options);
+  }
+  requestFinishRef.current = requestFinish;
 
   function startDialogs() {
     return (
       <>
         <SignInModal
           open={gate === "sign-in"}
-          onClose={() => setGate("closed")}
-          onSignedIn={() => setGate("confirm")}
+          onClose={() => {
+            const pending = pendingFinish.current;
+            pendingFinish.current = null;
+            setGate("closed");
+            if (pending?.fromTimer) {
+              finish({ fromTimer: true, save: false });
+              return;
+            }
+            if (!pausedForSignIn.current) return;
+            pausedForSignIn.current = false;
+            const held = performance.now() - (pauseStarted.current ?? performance.now());
+            pauseStarted.current = null;
+            setStartedAt((value) => (value === null ? value : value + held));
+            setNow(performance.now());
+            setPaused(false);
+          }}
+          onSignedIn={() => {
+            const pending = pendingFinish.current ?? {};
+            pendingFinish.current = null;
+            pausedForSignIn.current = false;
+            setGate("closed");
+            finish({ ...pending, save: true });
+          }}
         />
         <ConfirmStartDialog
           open={gate === "confirm"}
@@ -324,14 +426,24 @@ export function TypingTest() {
         >
           {paused ? "Resume" : "Pause"}
         </button>
-        <button
-          type="button"
-          onClick={() => finish()}
-          disabled={startedAt === null || finished || nothingTyped}
-          className="inline-flex min-h-11 items-center rounded-lg bg-[#C2410C] px-[18px] font-semibold text-white disabled:opacity-50"
-        >
-          Submit test
-        </button>
+        {paused ? (
+          <button
+            type="button"
+            onClick={abandonTest}
+            className="inline-flex min-h-11 items-center rounded-lg border border-[#D1D5DB] bg-white px-[18px] font-semibold text-[#374151]"
+          >
+            Exit
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => requestFinish()}
+            disabled={startedAt === null || finished || nothingTyped}
+            className="inline-flex min-h-11 items-center rounded-lg bg-[#C2410C] px-[18px] font-semibold text-white disabled:opacity-50"
+          >
+            Submit test
+          </button>
+        )}
       </>
     );
   }
@@ -497,7 +609,7 @@ export function TypingTest() {
           </p>
           <h1 className="font-display text-4xl font-bold">Choose your exam body</h1>
           <p className="text-base text-[#4B5563]">
-            The test follows the selected exam&apos;s pattern — language, time limit and how mistakes are counted.
+            The test follows the selected exam&apos;s time and how mistakes are counted.
           </p>
         </div>
         <div className="flex flex-wrap items-start gap-7">
@@ -537,6 +649,7 @@ export function TypingTest() {
               </span>
               <span className="font-display text-[22px] font-semibold">{exam.name}</span>
             </div>
+            {/* Language stays with the passage. The test does not ask for it.
             <div className="flex flex-col gap-2.5">
               <span className="text-sm font-semibold">Language</span>
               <div className="flex gap-2">
@@ -547,6 +660,7 @@ export function TypingTest() {
                 ))}
               </div>
             </div>
+            */}
             <div className="flex flex-col gap-2.5">
               <span className="text-sm font-semibold">Duration</span>
               <div className="flex gap-2">
@@ -607,9 +721,8 @@ export function TypingTest() {
               Start test
             </button>
             <span className="text-[13px] leading-normal text-[#4B5563]">
-              Sign in to start. After you confirm, the timer starts immediately. A pass
-              on the 10 minute setting is {MISTAKE_LIMIT * 100}% mistakes or fewer.
-              {language === "Hindi" ? " Sample passages are in English." : ""}
+              After you confirm, the timer starts immediately. Sign in when you submit
+              to save the result. A pass on the 10 minute setting is {MISTAKE_LIMIT * 100}% mistakes or fewer.
             </span>
           </aside>
         </div>

@@ -13,6 +13,8 @@ async function ensureIndexes(db: Db) {
   const typingAttempts = db.collection("typingAttempts");
   const stenoAttempts = db.collection("stenoAttempts");
   const serviceGrants = db.collection("serviceGrants");
+  const typingPassages = db.collection("typingPassages");
+  const stenoDictations = db.collection("stenoDictations");
   await Promise.all([
     users.createIndex({ userId: 1 }, { unique: true }),
     users.createIndex({ email: 1 }, { unique: true }),
@@ -25,6 +27,10 @@ async function ensureIndexes(db: Db) {
     typingAttempts.createIndex({ userId: 1, createdAt: -1 }),
     stenoAttempts.createIndex({ userId: 1, createdAt: -1 }),
     serviceGrants.createIndex({ paymentId: 1 }, { unique: true }),
+    typingPassages.createIndex({ createdAt: 1 }),
+    stenoDictations.createIndex({ createdAt: 1 }),
+    db.collection("practiceOptions").createIndex({ kind: 1, nameKey: 1 }, { unique: true }),
+    db.collection("practiceOptions").createIndex({ kind: 1, slug: 1 }, { unique: true }),
   ]);
 }
 

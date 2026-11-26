@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, JetBrains_Mono, Space_Grotesk } from "next/font/goog
 import Script from "next/script";
 import { AccountSlot } from "@/components/account-slot";
 import { AuthProvider } from "@/components/auth-provider";
+import { PracticeCatalogWarmup } from "@/components/practice-catalog-warmup";
 import { JsonLd } from "@/components/json-ld";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -54,6 +55,7 @@ function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());`}
         </Script>
         <div className="flex min-h-full flex-1 flex-col bg-[#F6F7F9] font-sans text-[#111827]">
+          <PracticeCatalogWarmup />
           <AuthProvider>
             <ChromeProvider>
               <ChromeGate>

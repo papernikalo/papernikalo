@@ -18,6 +18,7 @@ export default function robots(): MetadataRoute.Robots {
         "/services",
         "/pricing",
         "/progress",
+        "/admin",
         "/tools/typing/progress",
       ],
     },

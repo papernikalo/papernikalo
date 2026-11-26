@@ -90,6 +90,16 @@ export function AccountMenu({ initialUser }: { initialUser: PublicUser | null })
             >
               Transactions
             </Link>
+            {current.admin ? (
+              <Link
+                href="/admin"
+                role="menuitem"
+                className="block rounded-lg px-3 py-2 text-sm text-[#111827] hover:bg-[#F3F4F6]"
+                onClick={() => setOpen(false)}
+              >
+                Admin
+              </Link>
+            ) : null}
             <button
               type="button"
               role="menuitem"

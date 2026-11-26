@@ -15,6 +15,8 @@ export type PublicUser = {
   email: string;
   mobile: string;
   photo: string;
+  /** True when the account document has type "ADMIN". */
+  admin: boolean;
 };
 
 export class AuthError extends Error {

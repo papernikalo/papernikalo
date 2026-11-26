@@ -1,4 +1,10 @@
-export type TypingPassage = { title: string; text: string };
+export type TypingPassage = {
+  title: string;
+  text: string;
+  language?: "English" | "Hindi";
+  examId?: string;
+  minutes?: number;
+};
 
 export const typingPassages: TypingPassage[] = [
   {

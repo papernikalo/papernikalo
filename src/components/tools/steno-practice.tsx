@@ -7,48 +7,31 @@ import { LeaveGuard } from "@/components/leave-guard";
 import { ConfirmStartDialog, SignInModal } from "@/components/start-dialogs";
 import { useTestChrome } from "@/components/test-chrome";
 import { clearLocalDraft, writeLocalDraft } from "@/lib/local-draft";
+import { usePracticeCatalog } from "@/lib/practice-catalog";
+import { stenoDictations, type StenoDictation } from "@/lib/steno-dictations";
 import { alignWords, wordsOf, type AlignedWord } from "@/lib/typing-score";
 
 const STENO_DRAFT_KEY = "papernikalo-steno-draft";
+
+export function StenoExam() {
+  const catalog = usePracticeCatalog();
+  const dictations = useMemo(
+    () => [...stenoDictations, ...catalog.steno],
+    [catalog.steno],
+  );
+  return <StenoPractice dictations={dictations} />;
+}
 
 const speeds = [60, 80, 100, 120];
 const MIN_SPEED = 40;
 const MAX_SPEED = 200;
 
-const dictations = [
-  {
-    id: "1",
-    title: "Legal matter",
-    english:
-      "The learned counsel for the petitioner submitted that the impugned order was passed without giving the petitioner an opportunity of being heard. The bench observed that a reasoned order is required before any adverse action is taken, and directed the authority to decide the representation afresh within four weeks.",
-    hindi:
-      "याचिकाकर्ता की ओर से यह कहा गया कि विवादित आदेश बिना सुनवाई का अवसर दिए पारित किया गया। पीठ ने कहा कि कोई प्रतिकूल कार्रवाई करने से पहले कारण बताना आवश्यक है, और प्राधिकरण को चार सप्ताह में अभ्यावेदन पर नए सिरे से निर्णय लेने का निर्देश दिया।",
-  },
-  {
-    id: "2",
-    title: "Parliament speech",
-    english:
-      "Honourable members, the bill before the House seeks to shorten the time taken to fill vacant posts in government offices. It asks every department to publish a calendar of examinations and to declare results within a fixed period, so that candidates are not left waiting without information.",
-    hindi:
-      "माननीय सदस्यगण, यह विधेयक सरकारी कार्यालयों में खाली पदों को भरने में लगने वाला समय कम करना चाहता है। इसमें हर विभाग से परीक्षाओं का कैलेंडर प्रकाशित करने और एक निश्चित अवधि में परिणाम घोषित करने को कहा गया है।",
-  },
-  {
-    id: "3",
-    title: "General article",
-    english:
-      "A public park is useful only when it is looked after. Visitors need drinking water, working lights and clean paths. When these are missing, families stop coming, and the open ground turns into a place people avoid after dark. A small, regular staff can keep the park fit for daily use.",
-    hindi:
-      "सार्वजनिक पार्क तभी उपयोगी है जब उसकी देखभाल होती रहे। आगंतुकों को पीने का पानी, काम करती रोशनी और साफ रास्ते चाहिए। जब ये नहीं होते, तो परिवार आना छोड़ देते हैं और शाम के बाद लोग उस जगह से बचने लगते हैं।",
-  },
-];
-
-export function StenoPractice() {
+export function StenoPractice({ dictations }: { dictations: StenoDictation[] }) {
   const [phase, setPhase] = useState<"setup" | "session">("setup");
   const [speed, setSpeed] = useState(100);
   const [customSpeed, setCustomSpeed] = useState("");
   const [saveNote, setSaveNote] = useState("");
-  const [language, setLanguage] = useState<"English" | "Hindi">("English");
-  const [dictationId, setDictationId] = useState("1");
+  const [dictationId, setDictationId] = useState(dictations[0]?.id ?? "");
   const [step, setStep] = useState<"listen" | "type">("listen");
   const [playing, setPlaying] = useState(false);
   const [spoken, setSpoken] = useState(0);
@@ -60,7 +43,9 @@ export function StenoPractice() {
   const { user, ready } = useAuth();
   const signedIn = Boolean(user);
   const [gate, setGate] = useState<"closed" | "sign-in" | "confirm">("closed");
-  const pendingStart = useRef(false);
+  const pendingSubmit = useRef(false);
+  const submittedRef = useRef(false);
+  const commitSubmitRef = useRef<(save: boolean) => void>(() => {});
   const customValue = Number(customSpeed);
   const customInvalid =
     customSpeed.trim() !== "" &&
@@ -69,7 +54,9 @@ export function StenoPractice() {
   useTestChrome(phase === "session" && !submitted);
 
   const isTest = mode === "test";
-  const dictation = dictations.find((item) => item.id === dictationId) ?? dictations[0];
+  const dictation = dictations.find((item) => item.id === dictationId) ??
+    dictations[0] ?? { id: "", title: "Dictation", english: "", hindi: "" };
+  const language: "English" | "Hindi" = dictation.english.trim() ? "English" : "Hindi";
   const script = language === "Hindi" ? dictation.hindi : dictation.english;
   const fraction = script.length ? Math.min(1, spoken / script.length) : 0;
 
@@ -89,6 +76,7 @@ export function StenoPractice() {
     setDictationId(id);
     setPlayed(false);
     setSubmitted(false);
+    submittedRef.current = false;
     setTranscript("");
     setStep("listen");
   }
@@ -158,6 +146,7 @@ export function StenoPractice() {
     stopSpeech();
     setPlayed(false);
     setSubmitted(false);
+    submittedRef.current = false;
     setTranscript("");
     setSaveNote("");
     setStep("listen");
@@ -175,27 +164,23 @@ export function StenoPractice() {
 
   function requestStart() {
     if (customInvalid) return;
-    if (!ready) {
-      pendingStart.current = true;
-      return;
-    }
-    setGate(user ? "confirm" : "sign-in");
+    setGate("confirm");
   }
-
-  useEffect(() => {
-    if (!ready || !pendingStart.current) return;
-    pendingStart.current = false;
-    if (customInvalid) return;
-    setGate(user ? "confirm" : "sign-in");
-  }, [ready, user, customInvalid]);
 
   function startDialogs() {
     return (
       <>
         <SignInModal
           open={gate === "sign-in"}
-          onClose={() => setGate("closed")}
-          onSignedIn={() => setGate("confirm")}
+          onClose={() => {
+            pendingSubmit.current = false;
+            setGate("closed");
+          }}
+          onSignedIn={() => {
+            pendingSubmit.current = false;
+            setGate("closed");
+            commitSubmitRef.current(true);
+          }}
         />
         <ConfirmStartDialog
           open={gate === "confirm"}
@@ -235,18 +220,25 @@ export function StenoPractice() {
 
   function submitPractice() {
     if (submitted || transcript.trim().length === 0) return;
+    if (isTest && !user) {
+      pendingSubmit.current = true;
+      if (ready) setGate("sign-in");
+      return;
+    }
+    commitSubmit(isTest);
+  }
+
+  function commitSubmit(save: boolean) {
+    if (submittedRef.current || transcript.trim().length === 0) return;
+    submittedRef.current = true;
     const reference = wordsOf(script);
     const rows = alignWords(wordsOf(transcript), reference);
     const correct = rows.filter((row) => row.kind === "ok").length;
     const mistakes = rows.length - correct;
     const accuracy = reference.length ? Math.round((correct / reference.length) * 1000) / 10 : 0;
     setSubmitted(true);
-    if (!isTest) {
-      setSaveNote("This practice is not saved.");
-      return;
-    }
-    if (!signedIn) {
-      setSaveNote("Sign in to keep this result.");
+    if (!isTest || !save) {
+      setSaveNote(isTest ? "Sign in to keep this result." : "This practice is not saved.");
       return;
     }
     setSaveNote("Saving this attempt.");
@@ -274,6 +266,19 @@ export function StenoPractice() {
       })
       .catch(() => setSaveNote("This practice could not be saved on your account."));
   }
+  commitSubmitRef.current = commitSubmit;
+
+  useEffect(() => {
+    if (!pendingSubmit.current || !ready) return;
+    if (!user) {
+      setGate("sign-in");
+      return;
+    }
+    pendingSubmit.current = false;
+    setGate("closed");
+    commitSubmitRef.current(true);
+  }, [ready, user]);
+
   const progress = fraction * 100;
 
   if (phase === "setup") {
@@ -290,7 +295,7 @@ export function StenoPractice() {
             </p>
             <h1 className="font-display text-4xl font-bold">Choose your dictation</h1>
             <p className="text-base text-[#4B5563]">
-              Set the speed, language, and passage before the audio starts.
+              Set the speed and passage before the audio starts.
             </p>
           </div>
           <div className="flex flex-wrap items-start gap-7">
@@ -317,9 +322,9 @@ export function StenoPractice() {
                         </svg>
                       ) : null}
                     </span>
-                    <span className="text-sm leading-normal text-[#4B5563]">English · Hindi</span>
+                    <span className="text-sm leading-normal text-[#4B5563]">{item.topic ? `${item.topic} dictation` : "Dictation"}</span>
                     <span className="text-[13px] font-medium text-[#374151]">
-                      {wordsOf(language === "Hindi" ? item.hindi : item.english).length} words
+                      {wordsOf(item.english.trim() ? item.english : item.hindi).length} words
                     </span>
                   </button>
                 );
@@ -370,6 +375,7 @@ export function StenoPractice() {
                   </span>
                 </label>
               </div>
+              {/* Language stays with the dictation. The test does not ask for it.
               <div className="flex flex-col gap-2.5">
                 <span className="text-sm font-semibold">Language</span>
                 <div className="flex gap-2">
@@ -377,11 +383,12 @@ export function StenoPractice() {
                     <button
                       key={item}
                       type="button"
+                      disabled={item === "Hindi" && !hindiReady}
                       onClick={() => setLanguage(item)}
                       className={
                         item === language
                           ? "min-h-11 cursor-pointer rounded-full border border-[#C2410C] bg-[#C2410C] px-4 text-sm font-semibold text-white"
-                          : "min-h-11 cursor-pointer rounded-full border border-[#D1D5DB] bg-white px-4 text-sm font-semibold text-[#374151]"
+                          : "min-h-11 cursor-pointer rounded-full border border-[#D1D5DB] bg-white px-4 text-sm font-semibold text-[#374151] disabled:cursor-default disabled:opacity-40"
                       }
                     >
                       {item}
@@ -389,6 +396,7 @@ export function StenoPractice() {
                   ))}
                 </div>
               </div>
+              */}
               <div className="flex flex-col gap-2.5">
                 <span className="text-sm font-semibold">Mode</span>
                 <div className="grid grid-cols-2 gap-2">
@@ -579,7 +587,7 @@ function HowThisWorks({ test }: { test: boolean }) {
     ? [
         "Listen and write it in shorthand. The original text stays hidden, and you cannot jump between the steps.",
         "The dictation plays once. Typing opens when the audio finishes.",
-        "Type from your notes and submit. This test is saved on your account.",
+        "Type from your notes and submit. Sign in at submit to save this test on your account.",
       ]
     : [
         "Listen and write it in shorthand. The original text stays hidden, and you cannot jump between the steps.",

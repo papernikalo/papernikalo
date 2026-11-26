@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageFrame } from "@/components/page-frame";
 import { TypingProgress } from "@/components/tools/typing-progress-view";

@@ -60,7 +60,7 @@ export function SignUpForm({
       }
       setUser(body.user);
       if (onSignedIn) onSignedIn();
-      else router.push("/account");
+      else router.push("/");
     } catch {
       setError("The account could not be created.");
     } finally {

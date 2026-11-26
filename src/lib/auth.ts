@@ -19,11 +19,13 @@ const LOCK_MS = 15 * 60 * 1000;
 const REUSE_GRACE_MS = 60 * 1000;
 let unusedPasswordHash: Promise<string> | null = null;
 
-type UserDoc = PublicUser & {
+type UserDoc = Omit<PublicUser, "admin"> & {
   passwordHash: string;
   createdAt: Date;
   failedAttempts: number;
   lockedUntil: Date | null;
+  /** "ADMIN" on accounts that can add typing and steno content. */
+  type?: string;
 };
 
 type SessionDoc = {
@@ -180,6 +182,7 @@ function publicUser(user: UserDoc): PublicUser {
     email: user.email,
     mobile: user.mobile,
     photo: photo.startsWith("data:image/jpeg;base64,") ? photo : "",
+    admin: user.type === "ADMIN",
   };
 }
 
